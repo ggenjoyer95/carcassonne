@@ -14,7 +14,14 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - carcassonne-network
+    # Добавляем проверку здоровья для PostgreSQL
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carcassonne"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
+  # pgAdmin is optional - you can comment out or remove this service if you don't need it
   pgadmin:
     image: dpage/pgadmin4
     container_name: carcassonne-pgadmin
@@ -27,6 +34,55 @@ services:
       - postgres
     networks:
       - carcassonne-network
+
+  backend:
+    build:
+      context: ./carcassonne-server
+      dockerfile: Dockerfile
+    container_name: carcassonne-backend
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      # Important: DB_HOST must be set to the service name 'postgres'
+      # This is how Docker Compose networking allows services to find each other
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=carcassonne
+      - DB_PASSWORD=carcassonne
+      - DB_NAME=carcassonne
+      - JWT_SECRET=your_jwt_secret_key_here
+    ports:
+      - "8080:8080"
+    depends_on:
+      # Ждем, пока PostgreSQL будет здоров
+      postgres:
+        condition: service_healthy
+    networks:
+      - carcassonne-network
+    volumes:
+      - ./carcassonne-server:/app
+    command: ["npm", "start"]
+
+  frontend:
+    build:
+      context: ./carcassonne-frontend
+      dockerfile: Dockerfile
+    container_name: carcassonne-frontend
+    environment:
+      # When accessing from a browser on the host machine, use localhost
+      # If you're deploying to a server, change this to the server's public URL
+      - REACT_APP_API_URL=http://localhost:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - carcassonne-network
+    volumes:
+      - ./carcassonne-frontend:/app
+      - ./shared:/app/shared
+    command: npm start
 
 networks:
   carcassonne-network:

@@ -8,7 +8,7 @@ const {
   makeMove,
   placeTile,
   endTurn,
-  placeDot,
+  placeMeeple,
   rotateImage,
 } = require("../controllers/gameController");
 
@@ -24,5 +24,5 @@ router.post("/create", createGame);
 router.post("/:gameId/move", makeMove);
 router.post("/:gameId/placeTile", placeTile);
 router.post("/:gameId/endTurn", endTurn);
-router.post("/:gameId/placeDot", placeDot);
+router.post("/:gameId/placeMeeple", placeMeeple);
 router.post("/:gameId/rotateImage", rotateImage);

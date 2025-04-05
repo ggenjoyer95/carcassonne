@@ -1,18 +1,15 @@
 import React from "react";
+import TileComponent from "./TileComponent";
 
 const CarcassonneMap = ({
   board,
   onPlaceTile,
-  onPlaceDot,
+  onPlaceMeeple,  // функция установки мипла
   isCurrentTurn,
   myColor,
   myId,
 }) => {
   const tileSize = 80;
-  const centerCoord = tileSize / 2;
-  const dotDiameter = 15;
-  const halfDot = dotDiameter / 2;
-
   const keys = Object.keys(board);
   if (keys.length === 0) return null;
 
@@ -53,74 +50,31 @@ const CarcassonneMap = ({
             backgroundColor: cell ? "#ddd" : "#f0f0f0",
             width: `${tileSize}px`,
             height: `${tileSize}px`,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
             position: "relative",
-            cursor:
-              (!cell && isCurrentTurn) ||
-              (cell &&
-                cell.tile === "image" &&
-                isCurrentTurn &&
-                !cell.dot &&
-                cell.owner === myId)
-                ? "pointer"
-                : "default",
           }}
           onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const offsetX = e.clientX - rect.left;
+            const offsetY = e.clientY - rect.top;
             if (!cell && isCurrentTurn) {
-              onPlaceTile(x, y, centerCoord, centerCoord);
-            } else if (
-              cell &&
-              cell.tile === "image" &&
-              isCurrentTurn &&
-              !cell.dot &&
-              cell.owner === myId
-            ) {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const offsetX = e.clientX - rect.left;
-              const offsetY = e.clientY - rect.top;
-              const clampedX = Math.min(
-                Math.max(offsetX, halfDot),
-                tileSize - halfDot
-              );
-              const clampedY = Math.min(
-                Math.max(offsetY, halfDot),
-                tileSize - halfDot
-              );
-              onPlaceDot(x, y, clampedX, clampedY);
+              onPlaceTile(x, y, offsetX, offsetY);
             }
           }}
         >
-          {/* Если плитка установлена и содержит изображение, отображаем его */}
           {cell && cell.tile === "image" && (
-            <img
-              src={`/${cell.image}`}
-              alt="Tile"
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                transform: `rotate(${cell.rotation}deg)`,
+            <TileComponent
+              tile={{ ...cell, x, y }}
+              tileSize={tileSize}
+              onAreaClick={(areaName) => {
+                // Выводим в консоль информацию о зоне
+                console.log(
+                  `Зона ${areaName} была выбрана на тайле (${x},${y})`
+                );
+                if (isCurrentTurn) {
+                  onPlaceMeeple(x, y, areaName);
+                }
               }}
             />
-          )}
-          {/* Если на плитке установлена точка, отображаем её */}
-          {cell && cell.dot && (
-            <div
-              style={{
-                position: "absolute",
-                left: cell.dot.offsetX - halfDot,
-                top: cell.dot.offsetY - halfDot,
-                width: `${dotDiameter}px`,
-                height: `${dotDiameter}px`,
-                borderRadius: "50%",
-                backgroundColor: cell.dot.color,
-              }}
-            ></div>
           )}
         </div>
       ))}
