@@ -72,25 +72,25 @@ function GamePage() {
     }
   };
 
-  const handlePlaceDot = async (x, y, dotX, dotY) => {
+  const handlePlaceMeeple = async (x, y, areaName) => {
     try {
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/game/${gameId}/placeDot`,
+        `${process.env.REACT_APP_API_URL}/game/${gameId}/placeMeeple`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ x, y, dotX, dotY }),
+          body: JSON.stringify({ x, y, areaName }), // передаем имя области
         }
       );
       if (response.ok) {
         const data = await response.json();
-        setGameState(data);
+        setGameState(data);  // обновляем состояние игры
       } else {
         const errorData = await response.json();
-        setError(errorData.errorMessage || "Ошибка при установке точки");
+        setError(errorData.errorMessage || "Ошибка при установке мипла");
       }
     } catch (err) {
       setError("Ошибка соединения с сервером.");
@@ -194,7 +194,7 @@ function GamePage() {
             <CarcassonneMap
               board={gameState.board}
               onPlaceTile={handlePlaceTile}
-              onPlaceDot={handlePlaceDot}
+              onPlaceMeeple={handlePlaceMeeple}
               isCurrentTurn={isMyTurn}
               myColor={myColor}
               myId={myId}

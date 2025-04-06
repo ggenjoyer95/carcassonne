@@ -1,3 +1,7 @@
+const { validateTilePlacement } = require('../helpers/matchRules');
+const { findAreaByName } = require('../helpers/tileSegments');
+const { calculateScores } = require('../helpers/featureScoring');
+
 const games = {};
 const jwt = require("jsonwebtoken");
 
@@ -57,69 +61,75 @@ const joinGame = async (req, res) => {
   }
 };
 
-const startGame = (req, res) => {
-  const { gameId } = req.params;
-  if (!games[gameId]) {
-    console.log(`Ошибка: Игра с ID ${gameId} не найдена`);
-    return res.status(404).json({ errorMessage: "Игра не найдена" });
+const startGame = async (req, res) => {
+  try {
+    const { gameId } = req.params;
+    const game = await Game.findById(gameId);
+    if (!game) {
+      console.log(`Ошибка: Игра с ID ${gameId} не найдена`);
+      return res.status(404).json({ errorMessage: "Игра не найдена" });
+    }
+    
+    // Присвоение цветов игрокам
+    const availableColors = ["yellow", "red", "green", "blue", "black"];
+    availableColors.sort(() => Math.random() - 0.5);
+    
+    if (game.players.length > availableColors.length) {
+      return res.status(400).json({ errorMessage: "Слишком много игроков для доступных цветов" });
+    }
+    
+    game.players.forEach((player, index) => {
+      player.color = availableColors[index];
+    });
+    
+    // Инициализация игрового поля
+    const images = ["photo1.png", "photo2.png"];
+    const chosenImage = images[Math.floor(Math.random() * images.length)];
+    
+    game.board = {};
+    game.board["0,0"] = {
+      tile: "image",
+      image: chosenImage, // например, "photo1.png"
+      type: chosenImage.replace('.png', ''),
+      offsetX: 40,
+      offsetY: 40,
+      rotation: 0,
+      owner: "system",
+    };
+
+
+    
+    game.currentTileImage = chosenImage;
+    
+    // Добавляем соседей к начальной плитке
+    addNeighbors(game.board, 0, 0);
+    
+    game.currentMoveMade = false;
+    game.currentTurn = game.players[0].playerId;
+    game.imageRotation = 0;
+    game.status = "active";
+    game.remainingCards = 20;
+    
+    await game.save();
+    
+    console.log(`Игра ${gameId} началась! Осталось ${game.remainingCards} карт.`);
+    return res.status(200).json(game);
+  } catch (error) {
+    console.error("Error starting game:", error);
+    return res.status(500).json({ errorMessage: "Internal server error" });
   }
-  if (games[gameId].status === "active") {
-    console.log(`Ошибка: Игра ${gameId} уже активна`);
-    return res.status(400).json({ errorMessage: "Игра уже начата" });
-  }
-
-  const availableColors = ["yellow", "red", "green", "blue", "black"];
-  availableColors.sort(() => Math.random() - 0.5);
-
-  if (games[gameId].players.length > availableColors.length) {
-    return res
-      .status(400)
-      .json({ errorMessage: "Слишком много игроков для доступных цветов" });
-  }
-
-  games[gameId].players.forEach((player, index) => {
-    player.color = availableColors[index];
-  });
-
-  const images = ["photo1.png", "photo2.png"];
-  const chosenImage = images[Math.floor(Math.random() * images.length)];
-
-  games[gameId].board = {};
-  games[gameId].board["0,0"] = {
-    tile: "image",
-    image: chosenImage,
-    offsetX: 40,
-    offsetY: 40,
-    rotation: 0,
-    owner: "system",
-  };
-
-  games[gameId].currentTileImage = chosenImage;
-
-  addNeighbors(games[gameId].board, 0, 0);
-
-  games[gameId].currentMoveMade = false;
-  games[gameId].currentTurn = games[gameId].players[0].playerId;
-  games[gameId].imageRotation = 0;
-  games[gameId].status = "active";
-  games[gameId].remainingCards = 20;
-  games[gameId].status = "active";
-  console.log(`Игра ${gameId} началась! Осталось 20 карт.`);
-  return res.status(200).json(games[gameId]);
 };
 
-const makeMove = (req, res) => {
-  const { gameId } = req.params;
-  const token = req.headers.authorization?.split(" ")[1];
-
-  if (!games[gameId]) {
-    return res.status(404).json({ errorMessage: "Игра не найдена" });
-  }
-
+const makeMove = async (req, res) => {
   try {
+    const { gameId } = req.params;
+    const token = req.headers.authorization?.split(" ")[1];
+    const game = await Game.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ errorMessage: "Игра не найдена" });
+    }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const playerId = decoded.playerId;
-    const game = games[gameId];
     if (game.currentTurn !== playerId) {
       return res.status(403).json({ errorMessage: "Сейчас не ваш ход" });
     }
@@ -127,17 +137,16 @@ const makeMove = (req, res) => {
     if (!player) {
       return res.status(404).json({ errorMessage: "Игрок не найден" });
     }
-    game.board = { color: player.color };
+    // Логика завершения хода – например, переключение текущего игрока
     let currentIndex = game.players.findIndex((p) => p.playerId === playerId);
     let nextIndex = (currentIndex + 1) % game.players.length;
     game.currentTurn = game.players[nextIndex].playerId;
+    await game.save();
     console.log(`Игрок ${player.name} сделал ход. Цвет: ${player.color}`);
     return res.status(200).json(game);
   } catch (err) {
-    console.error("Ошибка валидации токена:", err);
-    return res
-      .status(401)
-      .json({ errorMessage: "Неверный токен авторизации." });
+    console.error("Ошибка в makeMove:", err);
+    return res.status(500).json({ errorMessage: "Internal server error" });
   }
 };
 
@@ -184,45 +193,50 @@ const createGame = async (req, res) => {
   }
 };
 
-const leaveGame = (req, res) => {
-  const { gameId } = req.params;
-  const token = req.headers.authorization?.split(" ")[1];
-
-  if (!games[gameId]) {
-    return res.status(404).json({ errorMessage: "Игра не найдена" });
-  }
-
+const leaveGame = async (req, res) => {
   try {
+    const { gameId } = req.params;
+    const token = req.headers.authorization?.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const playerId = decoded.playerId;
 
-    const playerIndex = games[gameId].players.findIndex(
+    // Считываем игру из базы
+    const game = await Game.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ errorMessage: "Игра не найдена" });
+    }
+
+    // Ищем игрока в массиве players
+    const playerIndex = game.players.findIndex(
       (player) => player.playerId === playerId
     );
-    if (playerIndex !== -1) {
-      const removedPlayer = games[gameId].players.splice(playerIndex, 1);
-      console.log(`Игрок ${removedPlayer[0].name} покинул игру ${gameId}.`);
-
-      if (games[gameId].players.length === 0) {
-        delete games[gameId];
-        console.log(
-          `Игра ${gameId} удалена, так как все игроки покинули лобби.`
-        );
-      }
-
-      return res.status(200).json({ message: "Вы успешно покинули игру." });
-    } else {
+    if (playerIndex === -1) {
       return res
         .status(404)
         .json({ errorMessage: "Игрок не найден в этой игре." });
     }
+
+    // Удаляем игрока
+    const [removedPlayer] = game.players.splice(playerIndex, 1);
+    console.log(`Игрок ${removedPlayer.name} покинул игру ${gameId}.`);
+
+    // Если после удаления не осталось игроков – можно удалить игру или сменить статус
+    if (game.players.length === 0) {
+      // либо удаляем из базы, либо меняем статус на 'finished'
+      // await db('games').where('game_id', gameId).del(); // пример удаления
+      console.log(`Игра ${gameId} удалена, так как все игроки покинули лобби.`);
+    } else {
+      // Сохраняем изменения
+      await game.save();
+    }
+
+    return res.status(200).json({ message: "Вы успешно покинули игру." });
   } catch (err) {
-    console.error("Ошибка валидации токена:", err);
-    return res
-      .status(401)
-      .json({ errorMessage: "Неверный токен авторизации." });
+    console.error("Ошибка в leaveGame:", err);
+    return res.status(401).json({ errorMessage: "Неверный токен авторизации." });
   }
 };
+
 
 /**
  * Функция проверки сопоставления сторон для одного соседа.
@@ -268,148 +282,107 @@ function canPlaceAdjacent(neighborTile, newTileType, dx, dy) {
   return allowed.includes(newTileContactSide);
 }
 
-const placeTile = (req, res) => {
-  const { gameId } = req.params;
-  let { x, y, offsetX, offsetY } = req.body;
-  const token = req.headers.authorization?.split(" ")[1];
-
-  const xNum = parseInt(x, 10);
-  const yNum = parseInt(y, 10);
-  if (isNaN(xNum) || isNaN(yNum)) {
-    return res.status(400).json({ errorMessage: "Неверные координаты плитки" });
-  }
-  const key = `${xNum},${yNum}`;
-
-  const offsetXNum = parseFloat(offsetX);
-  const offsetYNum = parseFloat(offsetY);
-  if (isNaN(offsetXNum) || isNaN(offsetYNum)) {
-    console.log(`Получены смещения: offsetX=${offsetX}, offsetY=${offsetY}`);
-    return res
-      .status(400)
-      .json({ errorMessage: "Неверные координаты для изображения" });
-  }
-
-  if (!games[gameId]) {
-    return res.status(404).json({ errorMessage: "Игра не найдена" });
-  }
-
+const placeTile = async (req, res) => {
   try {
+    const { gameId } = req.params;
+    let { x, y, offsetX, offsetY } = req.body;
+    const token = req.headers.authorization?.split(" ")[1];
+
+    // Преобразование координат
+    const xNum = parseInt(x, 10);
+    const yNum = parseInt(y, 10);
+    if (isNaN(xNum) || isNaN(yNum)) {
+      return res.status(400).json({ errorMessage: "Неверные координаты плитки" });
+    }
+    const key = `${xNum},${yNum}`;
+    // Дополнительная проверка смещений (как в твоём коде)
+    const offsetXNum = parseFloat(offsetX);
+    const offsetYNum = parseFloat(offsetY);
+    if (isNaN(offsetXNum) || isNaN(offsetYNum)) {
+      return res.status(400).json({ errorMessage: "Неверные координаты для изображения" });
+    }
+
+    // Получаем игру из базы данных через модель Game
+    const game = await Game.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ errorMessage: "Игра не найдена" });
+    }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const playerId = decoded.playerId;
-    const game = games[gameId];
-
     if (game.currentTurn !== playerId) {
       return res.status(403).json({ errorMessage: "Сейчас не ваш ход" });
     }
     if (game.currentMoveMade) {
-      return res
-        .status(400)
-        .json({ errorMessage: "Вы уже поставили плитку в этом ходе" });
+      return res.status(400).json({ errorMessage: "Вы уже поставили плитку в этом ходе" });
     }
     if (!(key in game.board)) {
-      console.log(
-        `Ключ ${key} отсутствует в доске. Текущие ключи: ${Object.keys(
-          game.board
-        )}`
-      );
+      console.log(`Ключ ${key} отсутствует в доске. Текущие ключи: ${Object.keys(game.board)}`);
       return res.status(400).json({ errorMessage: "Неверная позиция плитки" });
     }
     if (game.board[key] !== null) {
       return res.status(400).json({ errorMessage: "Плитка уже установлена" });
     }
 
-    const newTileType = game.currentTileImage.includes("photo1")
-      ? "photo1"
-      : "photo2";
-
-    const neighborChecks = [
-      { dx: -1, dy: 0, newSide: 1 },
-      { dx: 1, dy: 0, newSide: 3 },
-      { dx: 0, dy: -1, newSide: 2 },
-      { dx: 0, dy: 1, newSide: 4 },
-    ];
-
-    for (let check of neighborChecks) {
-      const neighborKey = `${xNum + check.dx},${yNum + check.dy}`;
-      if (game.board[neighborKey] && game.board[neighborKey] !== null) {
-        const neighborTile = game.board[neighborKey];
-        if (!neighborTile.owner || neighborTile.owner === "system") continue;
-
-        const neighborType = neighborTile.image.includes("photo1")
-          ? "photo1"
-          : "photo2";
-        const effectiveSides = getEffectiveSides(neighborTile);
-        let neighborEffectiveSide;
-        if (check.dx === -1 && check.dy === 0)
-          neighborEffectiveSide = effectiveSides[2];
-        else if (check.dx === 1 && check.dy === 0)
-          neighborEffectiveSide = effectiveSides[0];
-        else if (check.dx === 0 && check.dy === -1)
-          neighborEffectiveSide = effectiveSides[3];
-        else if (check.dx === 0 && check.dy === 1)
-          neighborEffectiveSide = effectiveSides[1];
-
-        const allowedSides =
-          matchRules[neighborType][newTileType][neighborEffectiveSide];
-        if (!allowedSides.includes(check.newSide)) {
-          return res.status(400).json({
-            errorMessage: `Неверное сопоставление сторон с плиткой по координатам ${neighborKey}`,
-          });
-        }
-      }
-    }
-
-    game.board[key] = {
-      tile: "image",
+    // Формируем объект нового тайла
+    // Предположим, что в game.currentTileImage хранится имя типа: "photo1.png" или "photo2.png"
+    // Формирование объекта нового тайла
+    const newTile = {
+      type: game.currentTileImage.replace('.png', ''),
       image: game.currentTileImage,
+      rotation: game.imageRotation,
       offsetX: offsetXNum,
       offsetY: offsetYNum,
-      rotation: game.imageRotation,
       owner: playerId,
+      tile: "image",
+      active: true   // <== Новое свойство, помечающее активную плитку
     };
 
+
+
+
+    // Здесь вызываем функцию проверки установки тайла:
+    if (!validateTilePlacement(game.board, newTile, xNum, yNum)) {
+      return res.status(400).json({ errorMessage: "Неверное сопоставление граней. Ход недопустим." });
+    }
+
+    // Если проверка прошла, устанавливаем тайл
+    game.board[key] = newTile;
+    // Добавляем соседей для этой клетки (как в твоем предыдущем коде)
     addNeighbors(game.board, xNum, yNum);
     game.currentMoveMade = true;
-
-    console.log(
-      `Игрок ${playerId} установил изображение (${game.currentTileImage}) на плитке (${xNum},${yNum}) с центром (${offsetXNum}, ${offsetYNum}) и вращением ${game.imageRotation}`
-    );
+    await game.save();
+    console.log(`Игрок ${playerId} установил плитку на координатах (${xNum}, ${yNum})`);
     return res.status(200).json(game);
   } catch (err) {
-    console.error("Ошибка валидации токена:", err);
-    return res
-      .status(401)
-      .json({ errorMessage: "Неверный токен авторизации." });
+    console.error("Ошибка в placeTile:", err);
+    return res.status(401).json({ errorMessage: "Неверный токен авторизации." });
   }
 };
 
-const endTurn = (req, res) => {
-  const { gameId } = req.params;
-  const token = req.headers.authorization?.split(" ")[1];
-
-  if (!games[gameId]) {
-    return res.status(404).json({ errorMessage: "Игра не найдена" });
-  }
-
+const endTurn = async (req, res) => {
   try {
+    const { gameId } = req.params;
+    const token = req.headers.authorization?.split(" ")[1];
+    const game = await Game.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ errorMessage: "Игра не найдена" });
+    }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const playerId = decoded.playerId;
-    const game = games[gameId];
-
     if (game.currentTurn !== playerId) {
       return res.status(403).json({ errorMessage: "Сейчас не ваш ход" });
     }
     if (!game.currentMoveMade) {
-      return res
-        .status(400)
-        .json({ errorMessage: "Вы не поставили плитку в этом ходе" });
+      return res.status(400).json({ errorMessage: "Вы не поставили плитку в этом ходе" });
     }
 
-    game.remainingCards = game.remainingCards - 1;
-
+    game.remainingCards -= 1;
     if (game.remainingCards <= 0) {
       game.status = "finished";
+      await game.save();
       console.log(`Игра ${gameId} завершена!`);
+      const finalScores = calculateScores(game);
+      console.log("Финальный счет:", finalScores);
       return res.status(200).json(game);
     }
 
@@ -420,142 +393,127 @@ const endTurn = (req, res) => {
     const images = ["photo1.png", "photo2.png"];
     game.currentTileImage = images[Math.floor(Math.random() * images.length)];
 
+    // Сбросить флаг активности для всех плиток
+    Object.keys(game.board).forEach(key => {
+      if (game.board[key]) {
+        game.board[key].active = false;
+      }
+    });
+
+    await game.save();
+
+    const currentScores = calculateScores(game);
+    console.log("Текущий счет:", currentScores);
+
     console.log(
-      `Ход игрока ${playerId} завершён. Следующий игрок: ${game.currentTurn}. Новое изображение для нижнего блока: ${game.currentTileImage}`
+      `Ход игрока ${playerId} завершен. Следующий игрок: ${game.currentTurn}. Новое изображение: ${game.currentTileImage}`
     );
     return res.status(200).json(game);
   } catch (err) {
-    console.error("Ошибка валидации токена:", err);
-    return res
-      .status(401)
-      .json({ errorMessage: "Неверный токен авторизации." });
+    console.error("Ошибка в endTurn:", err);
+    return res.status(401).json({ errorMessage: "Неверный токен авторизации." });
   }
 };
 
-const placeDot = (req, res) => {
-  const { gameId } = req.params;
-  const { x, y, dotX, dotY } = req.body; // x, y – координаты плитки, dotX, dotY – координаты клика внутри плитки
-  const token = req.headers.authorization?.split(" ")[1];
 
-  if (!games[gameId]) {
-    return res.status(404).json({ errorMessage: "Игра не найдена" });
-  }
 
+
+const TILE_SIZE = 80;
+
+const placeMeeple = async (req, res) => {
   try {
+    const { gameId } = req.params;
+    const { x, y, areaName } = req.body; // x,y – координаты плитки; areaName – имя области
+    const token = req.headers.authorization?.split(" ")[1];
+
+    // Получаем игру из базы данных
+    const game = await Game.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ errorMessage: "Игра не найдена" });
+    }
+
+    // Проверяем токен
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const playerId = decoded.playerId;
-    const game = games[gameId];
 
-    // Проверяем, что сейчас ход данного игрока
+    // Проверяем, что сейчас ход этого игрока
     if (game.currentTurn !== playerId) {
       return res.status(403).json({ errorMessage: "Сейчас не ваш ход" });
     }
 
-    // Проверяем координаты плитки
-    if (typeof x !== "number" || typeof y !== "number") {
-      return res
-        .status(400)
-        .json({ errorMessage: "Неверные координаты плитки" });
-    }
-
-    // Преобразуем координаты точки в числа
-    const dotXNum = parseFloat(dotX);
-    const dotYNum = parseFloat(dotY);
-    if (isNaN(dotXNum) || isNaN(dotYNum)) {
-      return res
-        .status(400)
-        .json({ errorMessage: "Неверные координаты точки" });
-    }
-
-    // Выводим в консоль координаты клика
-    console.log(
-      `Пользователь нажал на плитку (${x},${y}), координаты точки: (${dotXNum}, ${dotYNum})`
-    );
-
-    const key = `${x},${y}`;
-    if (!(key in game.board)) {
-      return res.status(400).json({ errorMessage: "Неверная позиция плитки" });
-    }
-
-    const tile = game.board[key];
-    if (!tile) {
-      return res.status(400).json({ errorMessage: "Плитка не установлена" });
-    }
-    if (tile.owner !== playerId) {
-      return res
-        .status(400)
-        .json({ errorMessage: "Эта плитка не принадлежит вам" });
-    }
-
-    // Находим игрока
+    // Находим игрока в списке игроков игры
     const player = game.players.find((p) => p.playerId === playerId);
     if (!player) {
       return res.status(404).json({ errorMessage: "Игрок не найден" });
     }
 
-    // Если точка уже установлена – возвращаем ошибку
-    if (tile.dot) {
-      return res.status(400).json({ errorMessage: "Точка уже установлена" });
+    // Проверяем, что координаты плитки корректны
+    if (typeof x !== "number" || typeof y !== "number") {
+      return res.status(400).json({ errorMessage: "Неверные координаты плитки" });
+    }
+    const key = `${x},${y}`;
+    if (!(key in game.board)) {
+      return res.status(400).json({ errorMessage: "Неверная позиция плитки" });
+    }
+    const tile = game.board[key];
+    if (!tile) {
+      return res.status(400).json({ errorMessage: "Плитка не установлена" });
+    }
+    if (tile.owner !== playerId) {
+      return res.status(400).json({ errorMessage: "Эта плитка не принадлежит вам" });
+    }
+    if (tile.meeple) {
+      return res.status(400).json({ errorMessage: "Мипл уже установлен на этой плитке" });
     }
 
-    // Определяем тёмную версию цвета игрока
-    const darkColors = {
-      blue: "darkblue",
-      red: "darkred",
-      green: "darkgreen",
-      yellow: "goldenrod",
-      black: "dimgray",
+    // Находим тип области по имени
+    const area = findAreaByName(tile.type, areaName);
+    
+    if (!area) {
+      return res.status(400).json({ errorMessage: "Указанная область не найдена" });
+    }
+
+    // Сохраняем только логическую информацию, без координат
+    tile.meeple = {
+      color: player.color,
+      segment: areaName,
+      segmentType: area.type
+      // Координаты теперь рассчитываются на стороне клиента
     };
 
-    // Сохраняем информацию о точке: цвет и позиция (смещение внутри плитки)
-    tile.dot = {
-      color: darkColors[player.color] || player.color,
-      offsetX: dotXNum,
-      offsetY: dotYNum,
-    };
-
+    await game.save();
     console.log(
-      `Игрок ${player.name} поставил точку на плитке (${x},${y}) в позиции (${dotXNum}, ${dotYNum})`
-    );
+  `Игрок ${playerId} поставил мипл на плитке (${x},${y}) в сегменте "${areaName}" (тип: ${area.type})`
+);
     return res.status(200).json(game);
   } catch (err) {
-    console.error("Ошибка валидации токена:", err);
-    return res
-      .status(401)
-      .json({ errorMessage: "Неверный токен авторизации." });
+    console.error("Ошибка в placeMeeple:", err);
+    return res.status(401).json({ errorMessage: "Неверный токен авторизации." });
   }
 };
 
-const rotateImage = (req, res) => {
-  const { gameId } = req.params;
-  const token = req.headers.authorization?.split(" ")[1];
 
-  if (!games[gameId]) {
-    return res.status(404).json({ errorMessage: "Игра не найдена" });
-  }
-
+const rotateImage = async (req, res) => {
   try {
+    const { gameId } = req.params;
+    const token = req.headers.authorization?.split(" ")[1];
+    const game = await Game.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ errorMessage: "Игра не найдена" });
+    }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const playerId = decoded.playerId;
-    const game = games[gameId];
-
-    // Разрешаем нажимать на эту кнопку только текущему игроку
-    if (game.currentTurn !== playerId) {
+    if (game.currentTurn !== decoded.playerId) {
       return res.status(403).json({ errorMessage: "Сейчас не ваш ход" });
     }
-
-    // Изменяем угол поворота на 90 градусов (по модулю 360)
     game.imageRotation = (game.imageRotation + 90) % 360;
-
+    await game.save();
     console.log(
-      `Игрок ${playerId} повернул изображение. Новый угол: ${game.imageRotation}`
+      `Игрок ${decoded.playerId} повернул изображение. Новый угол: ${game.imageRotation}`
     );
     return res.status(200).json(game);
   } catch (err) {
-    console.error("Ошибка валидации токена при повороте:", err);
-    return res
-      .status(401)
-      .json({ errorMessage: "Неверный токен авторизации." });
+    console.error("Ошибка в rotateImage:", err);
+    return res.status(401).json({ errorMessage: "Неверный токен авторизации." });
   }
 };
 
@@ -568,6 +526,6 @@ module.exports = {
   makeMove,
   placeTile,
   endTurn,
-  placeDot,
+  placeMeeple,
   rotateImage,
 };
