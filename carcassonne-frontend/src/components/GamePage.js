@@ -45,7 +45,7 @@ function GamePage() {
 
   useEffect(() => {
     if (gameState && gameState.status === "finished") {
-      navigate("/finish");
+      navigate("/finish", { state: gameState });
     }
   }, [gameState, navigate]);
 
@@ -75,6 +75,10 @@ function GamePage() {
   };
 
   const handlePlaceMeeple = async (x, y, areaName) => {
+    // Получаем текущего игрока для проверки количества миплов
+    const myPlayer = gameState.players.find((p) => p.playerId === playerId);
+    const myMeeples = myPlayer ? myPlayer.meeples : 0;
+    const myAbbats = myPlayer ? myPlayer.abbats : 0;
     if (selectedMeepleType === "аббаты" && myAbbats <= 0) {
       setError("Нет миплов данного типа");
       return;
@@ -97,7 +101,8 @@ function GamePage() {
       );
       if (response.ok) {
         const data = await response.json();
-        setGameState(data);  // обновляем состояние игры
+        setGameState(data);
+        setError("");
       } else {
         const errorData = await response.json();
         setError(errorData.errorMessage || "Ошибка при установке мипла");
@@ -106,7 +111,6 @@ function GamePage() {
       setError("Ошибка соединения с сервером.");
     }
   };
-  
 
   const handleEndTurn = async () => {
     try {
@@ -166,7 +170,6 @@ function GamePage() {
       if (response.ok) {
         const data = await response.json();
         setGameState(data);
-        // Дополнительно можно очистить ошибки, если они были
         setError("");
       } else {
         const errorData = await response.json();
@@ -176,7 +179,7 @@ function GamePage() {
       setError("Ошибка соединения с сервером.");
     }
   };
-  
+
   const handleZoomIn = () => {
     setScale((prev) => prev + 0.1);
   };
@@ -232,7 +235,7 @@ function GamePage() {
         </div>
       ) : null}
         
-      {/* Контейнер для игрового поля и панели масштабирования */}
+      {/* Контейнер для игрового поля и панели справа */}
       <div style={{ display: "flex", alignItems: "flex-start", width: "100%" }}>
         <div
           style={{
@@ -265,13 +268,14 @@ function GamePage() {
           </div>
         </div>
   
-        {/* Панель с кнопками масштабирования справа от игрового поля */}
+        {/* Панель с кнопками масштабирования и счетом игры справа */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             gap: "10px",
-            paddingTop: "20px"
+            paddingTop: "20px",
+            alignItems: "center"
           }}
         >
           <button
@@ -286,46 +290,79 @@ function GamePage() {
           >
             Отдалить
           </button>
+  
+          {/* Таблица счета игры */}
+          <div style={{ marginTop: "20px", width: "100%" }}>
+            <h3 style={{ fontSize: "16px", margin: "10px 0" }}>Счёт игры</h3>
+            <table
+              style={{
+                margin: "0 auto",
+                borderCollapse: "collapse",
+                width: "90%"
+              }}
+            >
+              <thead>
+                <tr>
+                  <th style={{ border: "1px solid #ccc", padding: "5px" }}>Игрок</th>
+                  <th style={{ border: "1px solid #ccc", padding: "5px" }}>Очки</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gameState.players.map((player) => (
+                  <tr key={player.playerId}>
+                    <td style={{ border: "1px solid #ccc", padding: "5px" }}>
+                      {player.name}
+                    </td>
+                    <td style={{ border: "1px solid #ccc", padding: "5px" }}>
+                      {gameState.scores && gameState.scores[player.playerId] !== undefined
+                        ? gameState.scores[player.playerId]
+                        : 0}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+  
+          {/* Кнопки выбора типа миплов */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: "10px",
+              marginTop: "10px"
+            }}
+          >
+            <button
+              onClick={() => setSelectedMeepleType("подданные")}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: selectedMeepleType === "подданные" ? "#555" : "#ccc",
+                color: selectedMeepleType === "подданные" ? "#fff" : "#000",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer"
+              }}
+            >
+              подданные ({myMeeples})
+            </button>
+            <button
+              onClick={() => setSelectedMeepleType("аббаты")}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: selectedMeepleType === "аббаты" ? "#555" : "#ccc",
+                color: selectedMeepleType === "аббаты" ? "#fff" : "#000",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer"
+              }}
+            >
+              аббаты ({myAbbats})
+            </button>
+          </div>
         </div>
       </div>
       
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          gap: "10px",
-          marginTop: "10px"
-        }}
-      >
-        <button
-          onClick={() => setSelectedMeepleType("подданные")}
-          style={{
-            padding: "8px 16px",
-            backgroundColor: selectedMeepleType === "подданные" ? "#555" : "#ccc",
-            color: selectedMeepleType === "подданные" ? "#fff" : "#000",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer"
-          }}
-        >
-          подданные ({myMeeples})
-        </button>
-        <button
-          onClick={() => setSelectedMeepleType("аббаты")}
-          style={{
-            padding: "8px 16px",
-            backgroundColor: selectedMeepleType === "аббаты" ? "#555" : "#ccc",
-            color: selectedMeepleType === "аббаты" ? "#fff" : "#000",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer"
-          }}
-        >
-          аббаты ({myAbbats})
-        </button>
-      </div>
-
-
       {/* Блок с кнопками управления ходом, поворотом, отменой действия и карточкой */}
       <div
         style={{
@@ -396,7 +433,7 @@ function GamePage() {
             />
           </div>
         )}
-              </div>
+      </div>
     </div>
   );
 }

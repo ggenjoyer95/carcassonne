@@ -110,7 +110,7 @@ const startGame = async (req, res) => {
     game.currentTurn = game.players[0].playerId;
     game.imageRotation = 0;
     game.status = "active";
-    game.remainingCards = 20;
+    game.remainingCards = 5;
     
     await game.save();
     
@@ -155,20 +155,21 @@ const makeMove = async (req, res) => {
 const getGameState = async (req, res) => {
   try {
     const { gameId } = req.params;
-
-    // Find game in database
     const game = await Game.findById(gameId);
-    
     if (!game) {
       return res.status(404).json({ errorMessage: "Игра не найдена" });
     }
-
-    return res.status(200).json(game);
+    const scores = calculateScores(game);
+    // Преобразуем экземпляр игры в обычный объект:
+    const gamePlain = JSON.parse(JSON.stringify(game));
+    const gameWithScores = { ...gamePlain, scores };
+    return res.status(200).json(gameWithScores);
   } catch (error) {
     console.error("Error getting game state:", error);
     return res.status(500).json({ errorMessage: "Internal server error" });
   }
 };
+
 
 const { getEffectiveSides, matchRules } = require("../helpers/matchRules");
 const Game = require("../models/gameModel");

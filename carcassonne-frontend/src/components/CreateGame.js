@@ -60,6 +60,7 @@ function CreateGame() {
           value={playerName}
           onChange={(e) => setPlayerName(e.target.value)}
           required
+          maxLength="12"
           style={{ marginLeft: "10px", padding: "5px" }}
         />
       </div>
