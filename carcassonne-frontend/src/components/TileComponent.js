@@ -1,5 +1,6 @@
 import React from "react";
 import TileOverlay from "./TileOverlay";
+import Meeple from "./Meeple";
 import { calculateMeeplePosition } from "../data/tileAreas";
 
 function TileComponent({ tile, tileSize, onAreaClick }) {
@@ -31,20 +32,18 @@ function TileComponent({ tile, tileSize, onAreaClick }) {
       {tile.active && (
         <TileOverlay tile={tile} tileSize={tileSize} onAreaClick={onAreaClick} />
       )}
-      {tile.meeple && (
-        <div
-          style={{
-            position: "absolute",
-            left: meeplePosition.x - 7.5,
-            top: meeplePosition.y - 7.5,
-            width: "15px",
-            height: "15px",
-            borderRadius: "50%",
-            backgroundColor: tile.meeple.color,
-            border: "1px solid white",
-          }}
-        />
-      )}
+        {tile.meeple && (
+          <Meeple
+            type={tile.meeple.meepleType}
+            color={tile.meeple.color}
+            size={25}
+            style={{
+              position: "absolute",
+              left: meeplePosition.x - 13, // при необходимости корректировать смещение
+              top: meeplePosition.y - 12,
+            }}
+          />
+        )}   
     </div>
   );
 }

@@ -10,6 +10,7 @@ const {
   endTurn,
   placeMeeple,
   rotateImage,
+  cancelAction,
 } = require("../controllers/gameController");
 
 const router = express.Router();
@@ -18,6 +19,7 @@ router.post("/:gameId/join", joinGame);
 router.post("/:gameId/start", startGame);
 router.post("/:gameId/leave", leaveGame);
 router.get("/:gameId", getGameState);
+router.post("/:gameId/cancelAction", cancelAction);
 
 module.exports = router;
 router.post("/create", createGame);

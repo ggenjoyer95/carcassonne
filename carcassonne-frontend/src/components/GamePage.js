@@ -10,6 +10,7 @@ function GamePage() {
   const [error, setError] = useState("");
   const [scale, setScale] = useState(1);
   const token = localStorage.getItem("jwt");
+  const [selectedMeepleType, setSelectedMeepleType] = useState("подданные"); // начальное значение
 
   let playerId = "";
   try {
@@ -47,6 +48,7 @@ function GamePage() {
       navigate("/finish");
     }
   }, [gameState, navigate]);
+
   const handlePlaceTile = async (x, y, offsetX, offsetY) => {
     try {
       const response = await fetch(
@@ -73,6 +75,14 @@ function GamePage() {
   };
 
   const handlePlaceMeeple = async (x, y, areaName) => {
+    if (selectedMeepleType === "аббаты" && myAbbats <= 0) {
+      setError("Нет миплов данного типа");
+      return;
+    }
+    if (selectedMeepleType === "подданные" && myMeeples <= 0) {
+      setError("Нет миплов данного типа");
+      return;
+    }
     try {
       const response = await fetch(
         `${process.env.REACT_APP_API_URL}/game/${gameId}/placeMeeple`,
@@ -82,7 +92,7 @@ function GamePage() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ x, y, areaName }), // передаем имя области
+          body: JSON.stringify({ x, y, areaName, meepleType: selectedMeepleType }),
         }
       );
       if (response.ok) {
@@ -96,6 +106,7 @@ function GamePage() {
       setError("Ошибка соединения с сервером.");
     }
   };
+  
 
   const handleEndTurn = async () => {
     try {
@@ -109,6 +120,7 @@ function GamePage() {
       if (response.ok) {
         const data = await response.json();
         setGameState(data);
+        setError("");
       } else {
         const errorData = await response.json();
         setError(errorData.errorMessage || "Ошибка при завершении хода");
@@ -139,6 +151,32 @@ function GamePage() {
     }
   };
 
+  const handleCancelAction = async () => {
+    try {
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/game/${gameId}/cancelAction`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setGameState(data);
+        // Дополнительно можно очистить ошибки, если они были
+        setError("");
+      } else {
+        const errorData = await response.json();
+        setError(errorData.errorMessage || "Ошибка при отмене действия");
+      }
+    } catch (err) {
+      setError("Ошибка соединения с сервером.");
+    }
+  };
+  
   const handleZoomIn = () => {
     setScale((prev) => prev + 0.1);
   };
@@ -152,6 +190,8 @@ function GamePage() {
   const isMyTurn = gameState.currentTurn === playerId;
   const tilePlacedThisTurn = gameState.currentMoveMade;
   const myPlayer = gameState.players.find((p) => p.playerId === playerId);
+  const myMeeples = myPlayer ? myPlayer.meeples : 0;
+  const myAbbats = myPlayer ? myPlayer.abbats : 0;
   const myColor = myPlayer ? myPlayer.color : null;
   const myId = playerId;
 
@@ -160,15 +200,38 @@ function GamePage() {
       <h2>Игра {gameId}</h2>
       <p>
         Текущий ход:{" "}
-        {
-          gameState.players.find((p) => p.playerId === gameState.currentTurn)
-            ?.name
-        }
+        {gameState.players.find((p) => p.playerId === gameState.currentTurn)?.name}
       </p>
-      {/* Подсчет оставшихся ходов */}
+      {/* Подсчет оставшихся карт */}
       <p>Осталось {gameState.remainingCards} карт</p>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
+      
+      {/* Объединенный блок с ошибками и инструкциями */}
+      {(error || isMyTurn) ? (
+        <div
+          style={{
+            margin: "10px auto",
+            padding: "10px",
+            border: "1px solid red",
+            borderRadius: "5px",
+            backgroundColor: "rgba(255,0,0,0.1)",
+            textAlign: "center",
+            width: "50%",
+            maxWidth: "50%"
+          }}
+        >
+          {error ? (
+            <p style={{ color: "red", margin: "0 0 5px 0" }}>{error}</p>
+          ) : null}
+          {isMyTurn ? (
+            <p style={{ color: "red", margin: 0 }}>
+              {tilePlacedThisTurn
+                ? "Кликните на установленный квадрат местности, если хотите установить мипл."
+                : "Кликните на игровое поле, чтобы установить квадрат местности."}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+        
       {/* Контейнер для игрового поля и панели масштабирования */}
       <div style={{ display: "flex", alignItems: "flex-start", width: "100%" }}>
         <div
@@ -181,14 +244,14 @@ function GamePage() {
             position: "relative",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
+            justifyContent: "center"
           }}
         >
           {/* Внутренний контейнер с масштабированием */}
           <div
             style={{
               transform: `scale(${scale})`,
-              transformOrigin: "center center",
+              transformOrigin: "center center"
             }}
           >
             <CarcassonneMap
@@ -201,14 +264,14 @@ function GamePage() {
             />
           </div>
         </div>
-
+  
         {/* Панель с кнопками масштабирования справа от игрового поля */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             gap: "10px",
-            paddingTop: "20px",
+            paddingTop: "20px"
           }}
         >
           <button
@@ -225,15 +288,52 @@ function GamePage() {
           </button>
         </div>
       </div>
+      
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: "10px",
+          marginTop: "10px"
+        }}
+      >
+        <button
+          onClick={() => setSelectedMeepleType("подданные")}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: selectedMeepleType === "подданные" ? "#555" : "#ccc",
+            color: selectedMeepleType === "подданные" ? "#fff" : "#000",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer"
+          }}
+        >
+          подданные ({myMeeples})
+        </button>
+        <button
+          onClick={() => setSelectedMeepleType("аббаты")}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: selectedMeepleType === "аббаты" ? "#555" : "#ccc",
+            color: selectedMeepleType === "аббаты" ? "#fff" : "#000",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer"
+          }}
+        >
+          аббаты ({myAbbats})
+        </button>
+      </div>
 
-      {/* Блок с кнопками управления ходом, поворотом и нижним изображением */}
+
+      {/* Блок с кнопками управления ходом, поворотом, отменой действия и карточкой */}
       <div
         style={{
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           marginTop: "20px",
-          gap: "10px",
+          gap: "10px"
         }}
       >
         <div
@@ -241,7 +341,7 @@ function GamePage() {
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            gap: "20px",
+            gap: "20px"
           }}
         >
           <button
@@ -250,10 +350,22 @@ function GamePage() {
             style={{
               padding: "8px 16px",
               fontSize: "14px",
-              cursor: !isMyTurn ? "not-allowed" : "pointer",
+              cursor: !isMyTurn ? "not-allowed" : "pointer"
             }}
           >
             Повернуть
+          </button>
+          <button
+            onClick={handleCancelAction}
+            disabled={!isMyTurn || !gameState.currentMoveMade}
+            style={{
+              padding: "8px 16px",
+              fontSize: "14px",
+              cursor:
+                !isMyTurn || !gameState.currentMoveMade ? "not-allowed" : "pointer"
+            }}
+          >
+            Отменить действие
           </button>
           <button
             onClick={handleEndTurn}
@@ -262,27 +374,29 @@ function GamePage() {
               padding: "10px 20px",
               fontSize: "16px",
               cursor:
-                !isMyTurn || !tilePlacedThisTurn ? "not-allowed" : "pointer",
+                !isMyTurn || !tilePlacedThisTurn ? "not-allowed" : "pointer"
             }}
           >
             Сделать ход
           </button>
         </div>
-
-        <div>
-          <img
-            src={`/${gameState.currentTileImage}`}
-            alt="Текущее изображение для плиток"
-            style={{
-              maxWidth: "200px",
-              width: "100%",
-              height: "auto",
-              transform: `rotate(${gameState.imageRotation}deg)`,
-              transition: "transform 0.3s ease",
-            }}
-          />
-        </div>
-      </div>
+  
+        {isMyTurn && !tilePlacedThisTurn && (
+          <div>
+            <img
+              src={`/${gameState.currentTileImage}`}
+              alt="Текущее изображение для плиток"
+              style={{
+                maxWidth: "200px",
+                width: "100%",
+                height: "auto",
+                transform: `rotate(${gameState.imageRotation}deg)`,
+                transition: "transform 0.3s ease",
+              }}
+            />
+          </div>
+        )}
+              </div>
     </div>
   );
 }

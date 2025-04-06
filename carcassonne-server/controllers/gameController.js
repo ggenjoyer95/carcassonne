@@ -36,8 +36,10 @@ const joinGame = async (req, res) => {
     const newPlayer = {
       playerId: `player${game.players.length + 1}`,
       name: playerName,
-      meeples: 7,
+      meeples: 7,   // подданные
+      abbats: 1     // аббаты
     };
+    
 
     game.players.push(newPlayer);
 
@@ -423,7 +425,7 @@ const TILE_SIZE = 80;
 const placeMeeple = async (req, res) => {
   try {
     const { gameId } = req.params;
-    const { x, y, areaName } = req.body; // x,y – координаты плитки; areaName – имя области
+    const { x, y, areaName, meepleType } = req.body;  // x,y – координаты плитки; areaName – имя области
     const token = req.headers.authorization?.split(" ")[1];
 
     // Получаем игру из базы данных
@@ -473,18 +475,35 @@ const placeMeeple = async (req, res) => {
       return res.status(400).json({ errorMessage: "Указанная область не найдена" });
     }
 
+    // Новая логика: проверка и обновление количества миплов
+    if (meepleType === "аббаты") {
+      if (player.abbats <= 0) {
+        return res.status(400).json({ errorMessage: "Нет миплов данного типа" });
+      }
+      // Уменьшаем количество аббатов
+      player.abbats--;
+    } else { // по умолчанию "подданные"
+      if (player.meeples <= 0) {
+        return res.status(400).json({ errorMessage: "Нет миплов данного типа" });
+      }
+      // Уменьшаем количество подданных
+      player.meeples--;
+    }
+
     // Сохраняем только логическую информацию, без координат
     tile.meeple = {
       color: player.color,
       segment: areaName,
-      segmentType: area.type
-      // Координаты теперь рассчитываются на стороне клиента
-    };
+      segmentType: area.type,
+      meepleType: req.body.meepleType // добавляем выбранный тип мипла
+    };    
 
     await game.save();
+    const meepleName = (meepleType === "аббаты") ? "мипл аббат" : "мипл подданный";
     console.log(
-  `Игрок ${playerId} поставил мипл на плитке (${x},${y}) в сегменте "${areaName}" (тип: ${area.type})`
-);
+      `Игрок ${playerId} поставил ${meepleName} на плитке (${x},${y}) в сегменте "${areaName}" (тип: ${area.type})`
+    );
+
     return res.status(200).json(game);
   } catch (err) {
     console.error("Ошибка в placeMeeple:", err);
@@ -515,7 +534,65 @@ const rotateImage = async (req, res) => {
     console.error("Ошибка в rotateImage:", err);
     return res.status(401).json({ errorMessage: "Неверный токен авторизации." });
   }
-};
+  };
+
+  const cancelAction = async (req, res) => {
+    try {
+      const { gameId } = req.params;
+      const token = req.headers.authorization?.split(" ")[1];
+      const game = await Game.findById(gameId);
+      if (!game) {
+        return res.status(404).json({ errorMessage: "Игра не найдена" });
+      }
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const playerId = decoded.playerId;
+      if (game.currentTurn !== playerId) {
+        return res.status(403).json({ errorMessage: "Сейчас не ваш ход" });
+      }
+  
+      // Ищем активную плитку с флагом active: true
+      let activeTileKey = null;
+      for (const key in game.board) {
+        if (game.board[key] && game.board[key].active) {
+          activeTileKey = key;
+          break;
+        }
+      }
+  
+      if (!activeTileKey) {
+        return res.status(400).json({ errorMessage: "Нет действия для отмены" });
+      }
+  
+      const tile = game.board[activeTileKey];
+      const player = game.players.find((p) => p.playerId === playerId);
+      // Если на плитке установлен мипл, удаляем его
+      if (tile.meeple) {
+        // Если на плитке установлен мипл, увеличиваем количество миплов выбранного типа у игрока
+        const type = tile.meeple.meepleType;
+        if (type === "аббаты") {
+          player.abbats++;
+        } else {
+          player.meeples++;
+        }
+        delete tile.meeple;
+        console.log(`Отменён мипл на плитке ${activeTileKey} игроком ${playerId}`);
+      } else {
+        // Если мипла нет, отменяем установку плитки,
+        // устанавливая значение клетки в null вместо удаления ключа
+        game.board[activeTileKey] = null;
+        game.currentMoveMade = false;
+        console.log(`Отменена установка плитки на ${activeTileKey} игроком ${playerId}`);
+      }
+  
+      await game.save();
+      return res.status(200).json(game);
+    } catch (err) {
+      console.error("Ошибка в cancelAction:", err);
+      return res.status(500).json({ errorMessage: "Internal server error" });
+    }
+  };
+  
+  
 
 module.exports = {
   createGame,
@@ -528,4 +605,5 @@ module.exports = {
   endTurn,
   placeMeeple,
   rotateImage,
+  cancelAction,
 };
