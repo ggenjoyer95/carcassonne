@@ -438,9 +438,9 @@ function GamePage() {
               src={`/tiles/${gameState.currentTileImage}`}
               alt="Текущее изображение для плиток"
               style={{
-                maxWidth: "200px",
-                width: "100%",
-                height: "auto",
+                width: "90px",      // фиксированная ширина
+                height: "90px",     // фиксированная высота
+                objectFit: "cover", // изображение масштабируется и обрезается по центру
                 transform: `rotate(${gameState.imageRotation}deg)`,
                 transition: "transform 0.3s ease",
               }}
