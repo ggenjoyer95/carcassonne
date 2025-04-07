@@ -6,7 +6,7 @@ function TileComponent({ tile, tileSize, onAreaClick }) {
   return (
     <div style={{ position: "relative", width: tileSize, height: tileSize }}>
       <img
-        src={`/${tile.image}`}
+        src={`/tiles/${tile.image}`}
         alt="Tile"
         style={{
           position: "absolute",
@@ -16,6 +16,7 @@ function TileComponent({ tile, tileSize, onAreaClick }) {
           height: tileSize,
           objectFit: "cover",
           transform: `rotate(${tile.rotation}deg)`,
+          filter: tile.image === "castlewithenter.png" ? "contrast(1.4) brightness(0.7)" : "none"
         }}
       />
       {tile.active && (

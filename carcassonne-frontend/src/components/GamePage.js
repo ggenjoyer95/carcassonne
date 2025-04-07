@@ -435,7 +435,7 @@ function GamePage() {
         {isMyTurn && !tilePlacedThisTurn && (
           <div>
             <img
-              src={`/${gameState.currentTileImage}`}
+              src={`/tiles/${gameState.currentTileImage}`}
               alt="Текущее изображение для плиток"
               style={{
                 maxWidth: "200px",

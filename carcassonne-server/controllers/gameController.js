@@ -82,45 +82,63 @@ const startGame = async (req, res) => {
     
     game.players.forEach((player, index) => {
       player.color = availableColors[index];
+      // Устанавливаем начальные количества миплов
+      player.meeples = 7;
+      player.abbats = 1;
     });
     
-    // Инициализация игрового поля
-    const images = ["photo1.png", "photo2.png"];
-    const chosenImage = images[Math.floor(Math.random() * images.length)];
-    
+    // Инициализация колоды карточек
+    const images = ["photo1.png", "photo2.png", "castlewithenter.png"]; // Если карточек больше (например, 72) – добавьте их сюда
+    game.deck = [...images]; // создаём копию массива карточек
+    console.log(`Deck после инициализации: ${JSON.stringify(game.deck)}`);
+    // Выбираем случайную карточку для стартовой плитки и удаляем её из колоды
+    const startingIndex = Math.floor(Math.random() * game.deck.length);
+    const startingImage = game.deck.splice(startingIndex, 1)[0];
+    console.log(`Выбрана стартовая карточка: ${startingImage}`);
+    console.log(`Deck после выбора стартовой карточки: ${JSON.stringify(game.deck)}`);
+    // Инициализируем игровое поле с начальной плиткой
     game.board = {};
     game.board["0,0"] = {
       tile: "image",
-      image: chosenImage, // например, "photo1.png"
-      type: chosenImage.replace('.png', ''),
+      image: startingImage, // стартовая карточка
+      type: startingImage.replace('.png', ''),
       offsetX: 40,
       offsetY: 40,
       rotation: 0,
       owner: "system",
     };
-
+    
+    // Выбираем следующую карточку для первого хода
+    // Выбираем случайную карточку для первого хода, но не удаляем её из колоды
+    if (game.deck.length > 0) {
+      const randomIndex = Math.floor(Math.random() * game.deck.length);
+      game.currentTileImage = game.deck[randomIndex]; // НЕ удаляем!
+    } else {
+      game.currentTileImage = startingImage;
+    }
 
     
-    game.currentTileImage = chosenImage;
-    
-    // Добавляем соседей к начальной плитке
+    // Добавляем соседей для начальной плитки
     addNeighbors(game.board, 0, 0);
     
     game.currentMoveMade = false;
     game.currentTurn = game.players[0].playerId;
     game.imageRotation = 0;
     game.status = "active";
-    game.remainingCards = 5;
+    // Обновляем remainingCards как длина колоды (если нужно)
+    game.remainingCards = game.deck.length;
     
     await game.save();
     
-    console.log(`Игра ${gameId} началась! Осталось ${game.remainingCards} карт.`);
+    console.log(`Игра ${gameId} началась! Стартовая карточка: ${startingImage}. Осталось карточек в колоде: ${game.deck.length}`);
     return res.status(200).json(game);
   } catch (error) {
     console.error("Error starting game:", error);
     return res.status(500).json({ errorMessage: "Internal server error" });
   }
 };
+
+
 
 const makeMove = async (req, res) => {
   try {
@@ -340,9 +358,6 @@ const placeTile = async (req, res) => {
       active: true   // <== Новое свойство, помечающее активную плитку
     };
 
-
-
-
     // Здесь вызываем функцию проверки установки тайла:
     if (!validateTilePlacement(game.board, newTile, xNum, yNum)) {
       return res.status(400).json({ errorMessage: "Неверное сопоставление граней. Ход недопустим." });
@@ -379,45 +394,58 @@ const endTurn = async (req, res) => {
       return res.status(400).json({ errorMessage: "Вы не поставили плитку в этом ходе" });
     }
 
-    game.remainingCards -= 1;
-    if (game.remainingCards <= 0) {
-      game.status = "finished";
-      await game.save();
-      console.log(`Игра ${gameId} завершена!`);
-      const finalScores = calculateScores(game);
-      console.log("Финальный счет:", finalScores);
-      return res.status(200).json(game);
-    }
-
+    // Сбрасываем флаг хода
     game.currentMoveMade = false;
-    let currentIndex = game.players.findIndex((p) => p.playerId === playerId);
-    let nextIndex = (currentIndex + 1) % game.players.length;
-    game.currentTurn = game.players[nextIndex].playerId;
-    const images = ["photo1.png", "photo2.png"];
-    game.currentTileImage = images[Math.floor(Math.random() * images.length)];
-
-    // Сбросить флаг активности для всех плиток
-    Object.keys(game.board).forEach(key => {
+    Object.keys(game.board).forEach((key) => {
       if (game.board[key]) {
         game.board[key].active = false;
       }
     });
+    // Переключаем текущий ход на следующего игрока
+    let currentIndex = game.players.findIndex((p) => p.playerId === playerId);
+    let nextIndex = (currentIndex + 1) % game.players.length;
+    game.currentTurn = game.players[nextIndex].playerId;
+
+    // Если deck не определён, инициализируем его как пустой массив (хотя он должен быть уже определён)
+    if (!game.deck) {
+      game.deck = [];
+    }
+
+    console.log(`Deck до выбора карточки: ${JSON.stringify(game.deck)}`);
+    
+    // Удаляем текущую карточку из колоды (если она есть)
+    const index = game.deck.indexOf(game.currentTileImage);
+    if (index !== -1) {
+      game.deck.splice(index, 1);
+    }
+    
+    // Если в колоде ещё есть карточки, выбираем новую карточку для следующего хода без удаления
+    if (game.deck.length > 0) {
+      const randomIndex = Math.floor(Math.random() * game.deck.length);
+      game.currentTileImage = game.deck[randomIndex];
+    }
+
+    // Обновляем remainingCards по длине колоды
+    game.remainingCards = game.deck.length;
+
+    // Если после выбора карточки колода пуста, завершаем игру
+    if (game.deck.length === 0) {
+      game.status = "finished";
+      console.log(`Игра ${gameId} завершена!`);
+      const finalScores = calculateScores(game);
+      console.log("Финальный счет:", finalScores);
+    }
+
+    console.log(`Deck после выбора карточки: ${JSON.stringify(game.deck)}`);
+    console.log(`RemainingCards: ${game.remainingCards}`);
 
     await game.save();
-
-    const currentScores = calculateScores(game);
-    console.log("Текущий счет:", currentScores);
-
-    console.log(
-      `Ход игрока ${playerId} завершен. Следующий игрок: ${game.currentTurn}. Новое изображение: ${game.currentTileImage}`
-    );
     return res.status(200).json(game);
   } catch (err) {
     console.error("Ошибка в endTurn:", err);
     return res.status(401).json({ errorMessage: "Неверный токен авторизации." });
   }
 };
-
 
 
 
@@ -586,7 +614,7 @@ const rotateImage = async (req, res) => {
         game.currentMoveMade = false;
         console.log(`Отменена установка плитки на ${activeTileKey} игроком ${playerId}`);
       }
-  
+      
       await game.save();
       return res.status(200).json(game);
     } catch (err) {
