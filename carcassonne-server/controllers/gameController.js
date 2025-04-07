@@ -496,8 +496,10 @@ const placeMeeple = async (req, res) => {
       color: player.color,
       segment: areaName,
       segmentType: area.type,
-      meepleType: req.body.meepleType // добавляем выбранный тип мипла
-    };    
+      meepleType: req.body.meepleType,
+      offsetX: req.body.offsetX,  // сохраняем координаты клика
+      offsetY: req.body.offsetY
+    };
 
     await game.save();
     const meepleName = (meepleType === "аббаты") ? "мипл аббат" : "мипл подданный";

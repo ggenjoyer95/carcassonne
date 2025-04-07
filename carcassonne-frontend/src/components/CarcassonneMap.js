@@ -65,16 +65,18 @@ const CarcassonneMap = ({
             <TileComponent
               tile={{ ...cell, x, y }}
               tileSize={tileSize}
-              onAreaClick={(areaName) => {
-                // Выводим в консоль информацию о зоне
+              onAreaClick={(areaName, relX, relY) => {
                 console.log(
-                  `Зона ${areaName} была выбрана на тайле (${x},${y})`
+                  `Зона ${areaName} была выбрана на тайле (${x},${y}) с координатами (${relX.toFixed(
+                    1
+                  )}, ${relY.toFixed(1)})`
                 );
                 if (isCurrentTurn) {
-                  onPlaceMeeple(x, y, areaName);
+                  // Вызываем onPlaceMeeple и передаём координаты клика
+                  onPlaceMeeple(x, y, areaName, relX, relY);
                 }
               }}
-            />
+            />          
           )}
         </div>
       ))}

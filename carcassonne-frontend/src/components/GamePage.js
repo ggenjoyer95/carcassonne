@@ -74,8 +74,8 @@ function GamePage() {
     }
   };
 
-  const handlePlaceMeeple = async (x, y, areaName) => {
-    // Получаем текущего игрока для проверки количества миплов
+  const handlePlaceMeeple = async (x, y, areaName, relX, relY) => {
+    // Проверка количества миплов как раньше...
     const myPlayer = gameState.players.find((p) => p.playerId === playerId);
     const myMeeples = myPlayer ? myPlayer.meeples : 0;
     const myAbbats = myPlayer ? myPlayer.abbats : 0;
@@ -96,12 +96,12 @@ function GamePage() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ x, y, areaName, meepleType: selectedMeepleType }),
+          body: JSON.stringify({ x, y, areaName, meepleType: selectedMeepleType, offsetX: relX, offsetY: relY }),
         }
       );
       if (response.ok) {
         const data = await response.json();
-        setGameState(data);
+        setGameState(data);  // Обновляем состояние игры
         setError("");
       } else {
         const errorData = await response.json();
@@ -110,7 +110,7 @@ function GamePage() {
     } catch (err) {
       setError("Ошибка соединения с сервером.");
     }
-  };
+  };  
 
   const handleEndTurn = async () => {
     try {
@@ -154,7 +154,10 @@ function GamePage() {
       setError("Ошибка соединения с сервером.");
     }
   };
-
+  const handleExit = () => {
+    navigate("/");
+  };
+  
   const handleCancelAction = async () => {
     try {
       const response = await fetch(
@@ -199,8 +202,8 @@ function GamePage() {
   const myId = playerId;
 
   return (
-    <div style={{ textAlign: "center", padding: "20px", position: "relative" }}>
-      <h2>Игра {gameId}</h2>
+    <div style={{ textAlign: "center", padding: "20px", marginTop: "5px" }}>
+      <h2 style={{ marginTop: -20 }}>Игра {gameId}</h2>
       <p>
         Текущий ход:{" "}
         {gameState.players.find((p) => p.playerId === gameState.currentTurn)?.name}
@@ -240,14 +243,14 @@ function GamePage() {
         <div
           style={{
             width: "100%",
-            height: "600px",
-            overflow: "auto",
+            maxHeight: "120vh",  // игровая зона будет занимать максимум 80% высоты окна
+            overflowY: "auto",  // если содержимое превышает высоту, появляется вертикальная прокрутка
             border: "1px solid #ccc",
             margin: "0 auto",
             position: "relative",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center"
+            justifyContent: "center",
           }}
         >
           {/* Внутренний контейнер с масштабированием */}
@@ -274,19 +277,19 @@ function GamePage() {
             display: "flex",
             flexDirection: "column",
             gap: "10px",
-            paddingTop: "20px",
+            paddingTop: "10px",
             alignItems: "center"
           }}
         >
           <button
             onClick={handleZoomIn}
-            style={{ padding: "10px 20px", fontSize: "14px" }}
+            style={{ padding: "10px 20px", fontSize: "14px", width: "120px" }}
           >
             Приблизить
           </button>
           <button
             onClick={handleZoomOut}
-            style={{ padding: "10px 20px", fontSize: "14px" }}
+            style={{ padding: "10px 20px", fontSize: "14px", width: "120px" }}
           >
             Отдалить
           </button>
@@ -408,15 +411,26 @@ function GamePage() {
             onClick={handleEndTurn}
             disabled={!isMyTurn || !tilePlacedThisTurn}
             style={{
-              padding: "10px 20px",
-              fontSize: "16px",
+              padding: "8px 16px",
+              fontSize: "14px",
               cursor:
                 !isMyTurn || !tilePlacedThisTurn ? "not-allowed" : "pointer"
             }}
           >
             Сделать ход
-          </button>
-        </div>
+            </button>
+              <button
+                onClick={handleExit}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                }}
+              >
+                Выйти
+              </button>
+            </div>
+
   
         {isMyTurn && !tilePlacedThisTurn && (
           <div>
