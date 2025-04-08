@@ -39,7 +39,7 @@ export const loadTileDefinitions = async () => {
  * @returns {Object} - Объект с координатами x и y для размещения мипла
  */
 export function calculateMeeplePosition(areaName, tileType, tileSize = 80, rotation = 0) {
-  const areas = tileAreas[tileType] || [];
+  const areas = tileAreas[tileType]?.areas || [];
   const area = areas.find(a => a.name === areaName);
   
   if (!area || !area.polygon || area.polygon.length === 0) {

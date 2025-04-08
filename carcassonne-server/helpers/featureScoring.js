@@ -1,6 +1,7 @@
 // carcassonne-server/helpers/featureScoring.js
 
-const { getEffectiveEdges } = require('./matchRules');
+const { getEffectiveEdgeIndices } = require('./matchRules');
+const { getEdgeSegments, findSegmentByIndex } = require('./tileSegments');
 
 // Направления обхода: для каждой стороны тайла (индексы: 0 – top, 1 – right, 2 – bottom, 3 – left)
 // для текущего тайла проверяем соседний тайл в данном направлении. Если сосед отсутствует
@@ -17,11 +18,12 @@ const directions = [
  * @param {Object} board - объект игрового поля (ключи: "x,y")
  * @param {number} startX - координата x начального тайла
  * @param {number} startY - координата y начального тайла
- * @param {string} featureType - тип объекта ("road" или "city" и т.п.)
+ * @param {string} featureType - тип объекта ("road" или "castle" и т.п.)
+ * @param {string} connectivityGroup - группа связности (например, "R1" или "C1")
  * @returns {Object} feature - объект с собранными данными:
- *   { type, tiles: Set([...]), meeples: { [playerId]: count, ... }, openEdges }
+ *   { type, group, tiles: Set([...]), meeples: { [playerId]: count, ... }, openEdges }
  */
-function gatherFeature(board, startX, startY, featureType) {
+function gatherFeature(board, startX, startY, featureType, connectivityGroup) {
   const visited = new Set();
   const tilesInFeature = new Set();
   let openEdges = 0;
@@ -34,26 +36,56 @@ function gatherFeature(board, startX, startY, featureType) {
     visited.add(key);
     const tile = board[key];
     if (!tile) return;
+    
     // Добавляем тайл в регион.
     tilesInFeature.add(key);
+    
     // Если на этом тайле установлен мипл, и его segmentType совпадает с featureType, учитываем его.
     if (tile.meeple && tile.meeple.segmentType === featureType) {
       const pid = tile.owner;
       meepleCounts[pid] = (meepleCounts[pid] || 0) + 1;
     }
-    // Получаем «эффективные» грани тайла с учётом его поворота.
-    const edges = getEffectiveEdges(tile);
-    // Для каждой стороны, которая имеет тип featureType, проверяем соседа.
+    
+    // Получаем эффективные индексы граней с учетом поворота
+    const effectiveEdgeIndices = getEffectiveEdgeIndices(tile);
+    
+    // Для каждого направления проверяем соседа
     directions.forEach(({ dx, dy, sideIndex, oppositeIndex }) => {
-      if (edges[sideIndex] === featureType) {
+      // Получаем реальный индекс грани с учетом поворота
+      const edgeIndex = effectiveEdgeIndices[sideIndex];
+      
+      // Получаем сегменты грани
+      const segments = getEdgeSegments(tile.type, edgeIndex);
+      
+      // Проверяем, есть ли среди сегментов грани сегмент с нужным типом и группой связности
+      const matchingSegment = segments.find(segment =>
+        segment.area === featureType && segment.group === connectivityGroup
+      );
+      
+      if (matchingSegment) {
         const neighborKey = `${x + dx},${y + dy}`;
         const neighbor = board[neighborKey];
+        
         if (!neighbor) {
           // Нет соседа – открытый край.
           openEdges++;
         } else {
-          const neighborEdges = getEffectiveEdges(neighbor);
-          if (neighborEdges[oppositeIndex] === featureType) {
+          // Получаем эффективные индексы граней соседа с учетом поворота
+          const neighborEffectiveIndices = getEffectiveEdgeIndices(neighbor);
+          const neighborEdgeIndex = neighborEffectiveIndices[oppositeIndex];
+          
+          // Получаем сегменты грани соседа
+          const neighborSegments = getEdgeSegments(neighbor.type, neighborEdgeIndex);
+          
+          // Проверяем, есть ли среди сегментов грани соседа сегмент с нужным типом и группой связности
+          // Учитываем, что сегменты соседа нужно проверять в обратном порядке
+          const neighborSegmentIndex = segments.length - 1 - matchingSegment.index;
+          const neighborMatchingSegment = neighborSegments.find(segment =>
+            segment.index === neighborSegmentIndex &&
+            segment.area === featureType
+          );
+          
+          if (neighborMatchingSegment) {
             // Сторона соседа совпадает – продолжаем обход, независимо от того, был ли он уже посещен.
             dfs(x + dx, y + dy);
           } else {
@@ -68,6 +100,7 @@ function gatherFeature(board, startX, startY, featureType) {
   dfs(startX, startY);
   return {
     type: featureType,
+    group: connectivityGroup,
     tiles: tilesInFeature,
     meeples: meepleCounts,
     openEdges: openEdges
@@ -93,7 +126,7 @@ function scoreFeature(feature) {
   let basePoints = 0;
   if (feature.type === "road") {
     basePoints = 1;
-  } else if (feature.type === "city") {
+  } else if (feature.type === "castle") {
     basePoints = 2;
   } else {
     // Для других типов можно расширять
@@ -133,13 +166,41 @@ function calculateScores(game) {
   Object.entries(board).forEach(([key, tile]) => {
     if (tile && tile.meeple) {
       if (processed.has(key)) return; // уже обработан в рамках какого-либо региона
-      // Определяем тип фичи по установленному миплу.
-      const featureType = tile.meeple.segmentType; // например, "road" или "city"
+      
+      // Определяем тип фичи и группу связности по установленному миплу
+      const featureType = tile.meeple.segmentType; // например, "road" или "castle"
+      const segmentName = tile.meeple.segment; // имя сегмента, например "roadArea" или "castle"
+      
+      // Получаем эффективные индексы граней с учетом поворота
+      const effectiveEdgeIndices = getEffectiveEdgeIndices(tile);
+      
+      // Ищем сегмент с указанным именем среди всех граней
+      let connectivityGroup = null;
+      for (let i = 0; i < 4; i++) {
+        const edgeIndex = effectiveEdgeIndices[i];
+        const segments = getEdgeSegments(tile.type, edgeIndex);
+        
+        for (const segment of segments) {
+          if (segment.area === segmentName) {
+            connectivityGroup = segment.group;
+            break;
+          }
+        }
+        
+        if (connectivityGroup) break;
+      }
+      
+      if (!connectivityGroup) {
+        console.warn(`Не удалось найти группу связности для мипла на плитке ${key}`);
+        return;
+      }
+      
       // Запускаем DFS, начиная с этого тайла.
       const [xStr, yStr] = key.split(",");
       const x = parseInt(xStr, 10);
       const y = parseInt(yStr, 10);
-      const feature = gatherFeature(board, x, y, featureType);
+      const feature = gatherFeature(board, x, y, featureType, connectivityGroup);
+      
       // Если регион завершен (openEdges === 0), начисляем очки.
       if (feature.openEdges === 0) {
         const result = scoreFeature(feature);
@@ -147,16 +208,130 @@ function calculateScores(game) {
           scores[pid] += result.points;
         });
       }
+      
       // Отмечаем все тайлы региона как обработанные.
       feature.tiles.forEach(tKey => processed.add(tKey));
     }
   });
+  
   console.log("Текущий счет:", scores);
   return scores;
+}
+
+/**
+ * Функция для подсчета очков за поля, прилегающие к завершенным городам
+ * @param {Object} game - объект игры
+ * @returns {Object} - { [playerId]: score, ... }
+ */
+function calculateFieldScores(game) {
+  const board = game.board;
+  const fieldScores = {};
+  game.players.forEach(player => {
+    fieldScores[player.playerId] = 0;
+  });
+  
+  // Сначала находим все завершенные города
+  const completedCities = [];
+  const processedCities = new Set();
+  
+  Object.entries(board).forEach(([key, tile]) => {
+    if (!tile) return;
+    
+    const [xStr, yStr] = key.split(",");
+    const x = parseInt(xStr, 10);
+    const y = parseInt(yStr, 10);
+    
+    // Получаем эффективные индексы граней с учетом поворота
+    const effectiveEdgeIndices = getEffectiveEdgeIndices(tile);
+    
+    // Проверяем каждую грань
+    for (let i = 0; i < 4; i++) {
+      const edgeIndex = effectiveEdgeIndices[i];
+      const segments = getEdgeSegments(tile.type, edgeIndex);
+      
+      // Ищем сегменты типа "castle"
+      for (const segment of segments) {
+        if (segment.area === "castle" && !processedCities.has(`${key}-${segment.group}`)) {
+          // Собираем город
+          const city = gatherFeature(board, x, y, "castle", segment.group);
+          
+          // Если город завершен, добавляем его в список
+          if (city.openEdges === 0) {
+            completedCities.push(city);
+          }
+          
+          // Отмечаем город как обработанный
+          city.tiles.forEach(tileKey => {
+            processedCities.add(`${tileKey}-${segment.group}`);
+          });
+        }
+      }
+    }
+  });
+  
+  // Теперь находим все поля, прилегающие к завершенным городам
+  const processedFields = new Set();
+  
+  // Для каждого завершенного города
+  completedCities.forEach(city => {
+    // Для каждой плитки в городе
+    city.tiles.forEach(tileKey => {
+      const [xStr, yStr] = tileKey.split(",");
+      const x = parseInt(xStr, 10);
+      const y = parseInt(yStr, 10);
+      const tile = board[tileKey];
+      
+      // Получаем эффективные индексы граней с учетом поворота
+      const effectiveEdgeIndices = getEffectiveEdgeIndices(tile);
+      
+      // Проверяем каждую грань
+      for (let i = 0; i < 4; i++) {
+        const edgeIndex = effectiveEdgeIndices[i];
+        const segments = getEdgeSegments(tile.type, edgeIndex);
+        
+        // Ищем сегменты типа "field", прилегающие к городу
+        for (const segment of segments) {
+          if (segment.area === "field" && !processedFields.has(`${tileKey}-${segment.group}`)) {
+            // Собираем поле
+            const field = gatherFeature(board, x, y, "field", segment.group);
+            
+            // Подсчитываем очки за поле
+            // 3 очка за каждый прилегающий завершенный город
+            const points = 3;
+            
+            // Определяем, кто имеет максимальное число миплов в этом поле
+            let maxCount = 0;
+            for (const count of Object.values(field.meeples)) {
+              if (count > maxCount) maxCount = count;
+            }
+            
+            const winners = [];
+            for (const [pid, count] of Object.entries(field.meeples)) {
+              if (count === maxCount) winners.push(pid);
+            }
+            
+            // Начисляем очки победителям
+            winners.forEach(pid => {
+              fieldScores[pid] += points;
+            });
+            
+            // Отмечаем поле как обработанное
+            field.tiles.forEach(fieldTileKey => {
+              processedFields.add(`${fieldTileKey}-${segment.group}`);
+            });
+          }
+        }
+      }
+    });
+  });
+  
+  console.log("Очки за поля:", fieldScores);
+  return fieldScores;
 }
 
 module.exports = {
   gatherFeature,
   scoreFeature,
-  calculateScores
+  calculateScores,
+  calculateFieldScores
 };
