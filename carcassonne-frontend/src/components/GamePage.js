@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import CarcassonneMap from "./CarcassonneMap";
+// В начале файла, где используется handleSkipTurn
 
 function GamePage() {
   const { gameId } = useParams();
@@ -111,7 +112,28 @@ function GamePage() {
       setError("Ошибка соединения с сервером.");
     }
   };  
-
+  const handleSkipTurn = async () => {
+    try {
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/game/${gameId}/skipTurn`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setGameState(data);
+        setError("");
+      } else {
+        const errorData = await response.json();
+        setError(errorData.errorMessage || "Ошибка при пропуске хода");
+      }
+    } catch (err) {
+      setError("Ошибка соединения с сервером.");
+    }
+  };
+  
   const handleEndTurn = async () => {
     try {
       const response = await fetch(
@@ -372,8 +394,8 @@ function GamePage() {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          marginTop: "20px",
-          gap: "10px"
+          marginTop: "5px",
+          gap: "5px"
         }}
       >
         <div
@@ -430,6 +452,17 @@ function GamePage() {
                 Выйти
               </button>
             </div>
+            <button
+              onClick={handleSkipTurn}
+              disabled={!isMyTurn} // Кнопка доступна, если это ход игрока
+              style={{
+                padding: "8px 16px",
+                fontSize: "14px",
+                cursor: !isMyTurn ? "not-allowed" : "pointer"
+              }}
+            >
+              Пропустить ход
+            </button>
 
   
         {isMyTurn && !tilePlacedThisTurn && (
