@@ -2,7 +2,9 @@ import React, { useState } from "react";
 import { tileAreas } from "../data/tileAreas";
 
 function TileOverlay({ tile, tileSize, onAreaClick }) {
-  const areas = tileAreas[tile.type] || [];
+  // Получаем области для данного типа плитки
+  // Если tileAreas[tile.type] не существует, используем пустой массив
+  const areas = tileAreas[tile.type]?.areas || [];
   const [hoveredArea, setHoveredArea] = useState(null);
 
   // Функция, которая получает координаты клика в системе координат SVG

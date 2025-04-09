@@ -1,6 +1,6 @@
-const { validateTilePlacement } = require('../helpers/matchRules');
-const { findAreaByName } = require('../helpers/tileSegments');
-const { calculateScores } = require('../helpers/featureScoring');
+const { validateTilePlacement, getEffectiveEdgeIndices } = require('../helpers/matchRules');
+const { findAreaByName, findSegmentByIndex, getEdgeSegments } = require('../helpers/tileSegments');
+const { calculateScores, calculateFieldScores } = require('../helpers/featureScoring');
 
 const games = {};
 const jwt = require("jsonwebtoken");
@@ -83,14 +83,15 @@ const startGame = async (req, res) => {
     });
     
     // Инициализация игрового поля
-    const images = ["photo1.png", "photo2.png"];
-    const chosenImage = images[Math.floor(Math.random() * images.length)];
+    const tileTypes = ["CastleCenter0", "CastleCenterEntry0", "CastleCenterEntry1", "CastleCenterEntry2", "CastleCenterEntry3", "CastleEdgeRoad0", "CastleEdgeRoad1", "CastleEdgeRoad2", "CastleEdgeRoad3"];
+    const chosenTileType = tileTypes[Math.floor(Math.random() * tileTypes.length)];
+    const chosenImage = `${chosenTileType}.png`;
     
     game.board = {};
     game.board["0,0"] = {
       tile: "image",
-      image: chosenImage, // например, "photo1.png"
-      type: chosenImage.replace('.png', ''),
+      image: chosenImage, // например, "CastleCenter0.png"
+      type: chosenTileType,
       offsetX: 40,
       offsetY: 40,
       rotation: 0,
@@ -327,14 +328,14 @@ const placeTile = async (req, res) => {
     // Предположим, что в game.currentTileImage хранится имя типа: "photo1.png" или "photo2.png"
     // Формирование объекта нового тайла
     const newTile = {
-      type: game.currentTileImage.replace('.png', ''),
+      type: game.currentTileImage.replace('.png', ''), // Например, "CastleCenter0"
       image: game.currentTileImage,
       rotation: game.imageRotation,
       offsetX: offsetXNum,
       offsetY: offsetYNum,
       owner: playerId,
       tile: "image",
-      active: true   // <== Новое свойство, помечающее активную плитку
+      active: true   // <== Свойство, помечающее активную плитку
     };
 
 
@@ -390,8 +391,11 @@ const endTurn = async (req, res) => {
     let currentIndex = game.players.findIndex((p) => p.playerId === playerId);
     let nextIndex = (currentIndex + 1) % game.players.length;
     game.currentTurn = game.players[nextIndex].playerId;
-    const images = ["photo1.png", "photo2.png"];
-    game.currentTileImage = images[Math.floor(Math.random() * images.length)];
+    
+    // Используем новые типы плиток
+    const tileTypes = ["CastleCenter0", "CastleCenterEntry0", "CastleCenterEntry1", "CastleCenterEntry2", "CastleCenterEntry3", "CastleEdgeRoad0", "CastleEdgeRoad1", "CastleEdgeRoad2", "CastleEdgeRoad3"];
+    const chosenTileType = tileTypes[Math.floor(Math.random() * tileTypes.length)];
+    game.currentTileImage = `${chosenTileType}.png`;
 
     // Сбросить флаг активности для всех плиток
     Object.keys(game.board).forEach(key => {
@@ -402,8 +406,23 @@ const endTurn = async (req, res) => {
 
     await game.save();
 
+    // Рассчитываем очки за завершенные регионы
     const currentScores = calculateScores(game);
-    console.log("Текущий счет:", currentScores);
+    console.log("Текущий счет за регионы:", currentScores);
+    
+    // Рассчитываем очки за поля, прилегающие к завершенным городам
+    const fieldScores = calculateFieldScores(game);
+    console.log("Текущий счет за поля:", fieldScores);
+    
+    // Объединяем очки
+    game.players.forEach(player => {
+      const pid = player.playerId;
+      if (currentScores[pid] && fieldScores[pid]) {
+        currentScores[pid] += fieldScores[pid];
+      }
+    });
+    
+    console.log("Общий текущий счет:", currentScores);
 
     console.log(
       `Ход игрока ${playerId} завершен. Следующий игрок: ${game.currentTurn}. Новое изображение: ${game.currentTileImage}`
@@ -473,12 +492,37 @@ const placeMeeple = async (req, res) => {
       return res.status(400).json({ errorMessage: "Указанная область не найдена" });
     }
 
-    // Сохраняем только логическую информацию, без координат
+    // Находим сегмент и группу связности
+    let segmentGroup = null;
+    
+    // Получаем эффективные индексы граней с учетом поворота
+    const effectiveEdgeIndices = getEffectiveEdgeIndices(tile);
+    
+    // Ищем сегмент с указанным именем среди всех граней
+    for (let i = 0; i < 4; i++) {
+      const edgeIndex = effectiveEdgeIndices[i];
+      const segments = getEdgeSegments(tile.type, edgeIndex);
+      
+      for (const segment of segments) {
+        if (segment.area === areaName) {
+          segmentGroup = segment.group;
+          break;
+        }
+      }
+      
+      if (segmentGroup) break;
+    }
+    
+    if (!segmentGroup) {
+      console.warn(`Не удалось найти группу связности для области ${areaName} на плитке ${tile.type}`);
+    }
+
+    // Сохраняем информацию о мипле
     tile.meeple = {
       color: player.color,
       segment: areaName,
-      segmentType: area.type
-      // Координаты теперь рассчитываются на стороне клиента
+      segmentType: area.type,
+      group: segmentGroup // Добавляем группу связности
     };
 
     await game.save();
