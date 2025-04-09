@@ -88,7 +88,45 @@ const startGame = async (req, res) => {
     });
     
     // Инициализация колоды карточек
-    const images = ["CastleCenter0.png", "CastleCenterEntry0.png", "CastleCenterEntry1.png", "CastleCenterEntry2.png", "CastleCenterEntry3.png", "CastleCenterSide0.png", "CastleCenterSide1.png", "CastleCenterSide2.png", "CastleCenterSide3.png", "CastleCenterSides0.png", "CastleCenterSides1.png", "CastleCenterSides2.png", "CastleCenterSides3.png", "CastleEdge0.png", "CastleEdge1.png", "CastleEdge2.png", "CastleEdge3.png", "CastleEdgeRoad0.png", "CastleEdgeRoad1.png", "CastleEdgeRoad2.png", "CastleEdgeRoad3.png"]; // Если карточек больше (например, 72) – добавьте их сюда
+    const images = [
+      "CastleCenter0.png",
+      "CastleCenterEntry0.png",
+      "CastleCenterEntry1.png",
+      "CastleCenterEntry2.png",
+      "CastleCenterEntry3.png",
+      "CastleCenterSide0.png",
+      "CastleCenterSide1.png",
+      "CastleCenterSide2.png",
+      "CastleCenterSide3.png",
+      "CastleCenterSides0.png", 
+      "CastleCenterSides1.png",
+      "CastleCenterSides2.png",
+      "CastleCenterSides3.png",
+      "CastleEdge0.png",
+      "CastleEdge1.png",
+      "CastleEdge2.png",
+      "CastleEdge3.png",
+      "CastleEdgeRoad0.png",
+      "CastleEdgeRoad1.png",
+      "CastleEdgeRoad2.png",
+      "CastleEdgeRoad3.png",
+      "CastleMini0.png",
+      "CastleMini0.png",
+      "CastleSides0.png",
+      "CastleSides0.png",
+      "CastleSidesEdgeRoad0.png",
+      "CastleSidesEdgeRoad0.png",
+      "CastleSidesEdgeRoad0.png",
+      "CastleSidesEdgeRoad0.png",      
+      "CastleSidesQuad0.png",
+      "CastleSidesRoad0.png",
+      "CastleSidesRoad0.png",
+      "CastleTube0.png",
+      "CastleTube0.png"
+    ];
+      
+      // Если карточек больше (например, 72) – добавьте их сюда
+    
     game.deck = [...images]; // создаём копию массива карточек
     console.log(`Deck после инициализации: ${JSON.stringify(game.deck)}`);
     // Выбираем случайную карточку для стартовой плитки и удаляем её из колоды
