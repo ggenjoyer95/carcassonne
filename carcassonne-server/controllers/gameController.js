@@ -83,7 +83,29 @@ const startGame = async (req, res) => {
     });
     
     // Инициализация игрового поля
-    const tileTypes = ["CastleCenter0", "CastleCenterEntry0", "CastleCenterEntry1", "CastleCenterEntry2", "CastleCenterEntry3", "CastleEdgeRoad0", "CastleEdgeRoad1", "CastleEdgeRoad2", "CastleEdgeRoad3"];
+    const tileTypes = [
+      "CastleCenter0",
+      "CastleCenterEntry0",
+      "CastleCenterEntry1",
+      "CastleCenterEntry2",
+      "CastleCenterEntry3",
+      "CastleCenterSide0",
+      "CastleCenterSide1",
+      "CastleCenterSide2",
+      "CastleCenterSide3",
+      "CastleCenterSides0",
+      "CastleCenterSides1",
+      "CastleCenterSides2",
+      "CastleCenterSides3",
+      "CastleEdge0",
+      "CastleEdge1",
+      "CastleEdge2",
+      "CastleEdge",
+      "CastleEdgeRoad0",
+      "CastleEdgeRoad1",
+      "CastleEdgeRoad2",
+      "CastleEdgeRoad3"
+    ];
     const chosenTileType = tileTypes[Math.floor(Math.random() * tileTypes.length)];
     const chosenImage = `${chosenTileType}.png`;
     
