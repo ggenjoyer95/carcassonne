@@ -88,7 +88,7 @@ const startGame = async (req, res) => {
     });
     
     // Инициализация колоды карточек
-    const images = ["photo1.png", "photo2.png", "castlewithenter.png"]; // Если карточек больше (например, 72) – добавьте их сюда
+    const images = ["CastleCenter0.png", "CastleCenterEntry0.png", "CastleCenterEntry1.png", "CastleCenterEntry2.png", "CastleCenterEntry3.png", "CastleCenterSide0.png", "CastleCenterSide1.png", "CastleCenterSide2.png", "CastleCenterSide3.png", "CastleCenterSides0.png", "CastleCenterSides1.png", "CastleCenterSides2.png", "CastleCenterSides3.png", "CastleEdge0.png", "CastleEdge1.png", "CastleEdge2.png", "CastleEdge3.png", "CastleEdgeRoad0.png", "CastleEdgeRoad1.png", "CastleEdgeRoad2.png", "CastleEdgeRoad3.png"]; // Если карточек больше (например, 72) – добавьте их сюда
     game.deck = [...images]; // создаём копию массива карточек
     console.log(`Deck после инициализации: ${JSON.stringify(game.deck)}`);
     // Выбираем случайную карточку для стартовой плитки и удаляем её из колоды
@@ -623,7 +623,72 @@ const rotateImage = async (req, res) => {
     }
   };
   
-  
+  const skipTurn = async (req, res) => {
+  try {
+    const { gameId } = req.params;
+    const token = req.headers.authorization?.split(" ")[1];
+    const game = await Game.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ errorMessage: "Игра не найдена" });
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const playerId = decoded.playerId;
+    if (game.currentTurn !== playerId) {
+      return res.status(403).json({ errorMessage: "Сейчас не ваш ход" });
+    }
+
+    // Сбрасываем флаг хода
+    game.currentMoveMade = false;
+    Object.keys(game.board).forEach((key) => {
+      if (game.board[key]) {
+        game.board[key].active = false;
+      }
+    });
+    // Переключаем текущий ход на следующего игрока
+    let currentIndex = game.players.findIndex((p) => p.playerId === playerId);
+    let nextIndex = (currentIndex + 1) % game.players.length;
+    game.currentTurn = game.players[nextIndex].playerId;
+
+    // Если deck не определён, инициализируем его как пустой массив (хотя он должен быть уже определён)
+    if (!game.deck) {
+      game.deck = [];
+    }
+
+    console.log(`Deck до выбора карточки: ${JSON.stringify(game.deck)}`);
+    
+    // Удаляем текущую карточку из колоды (если она есть)
+    const index = game.deck.indexOf(game.currentTileImage);
+    if (index !== -1) {
+      game.deck.splice(index, 1);
+    }
+    
+    // Если в колоде ещё есть карточки, выбираем новую карточку для следующего хода без удаления
+    if (game.deck.length > 0) {
+      const randomIndex = Math.floor(Math.random() * game.deck.length);
+      game.currentTileImage = game.deck[randomIndex];
+    }
+
+    // Обновляем remainingCards по длине колоды
+    game.remainingCards = game.deck.length;
+
+    // Если после выбора карточки колода пуста, завершаем игру
+    if (game.deck.length === 0) {
+      game.status = "finished";
+      console.log(`Игра ${gameId} завершена!`);
+      const finalScores = calculateScores(game);
+      console.log("Финальный счет:", finalScores);
+    }
+
+    console.log(`Deck после выбора карточки: ${JSON.stringify(game.deck)}`);
+    console.log(`RemainingCards: ${game.remainingCards}`);
+
+    await game.save();
+    return res.status(200).json(game);
+  } catch (err) {
+    console.error("Ошибка в endTurn:", err);
+    return res.status(401).json({ errorMessage: "Неверный токен авторизации." });
+  }
+};
 
 module.exports = {
   createGame,
@@ -637,4 +702,5 @@ module.exports = {
   placeMeeple,
   rotateImage,
   cancelAction,
+  skipTurn,
 };

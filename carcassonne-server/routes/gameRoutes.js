@@ -11,6 +11,7 @@ const {
   placeMeeple,
   rotateImage,
   cancelAction,
+  skipTurn,
 } = require("../controllers/gameController");
 
 const router = express.Router();
@@ -28,3 +29,4 @@ router.post("/:gameId/placeTile", placeTile);
 router.post("/:gameId/endTurn", endTurn);
 router.post("/:gameId/placeMeeple", placeMeeple);
 router.post("/:gameId/rotateImage", rotateImage);
+router.post("/:gameId/skipTurn", skipTurn);

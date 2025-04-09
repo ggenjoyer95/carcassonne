@@ -16,7 +16,7 @@ function TileComponent({ tile, tileSize, onAreaClick }) {
           height: tileSize,
           objectFit: "cover",
           transform: `rotate(${tile.rotation}deg)`,
-          filter: tile.image === "castlewithenter.png" ? "contrast(1.4) brightness(0.7)" : "none"
+          filter: tile.image === "CastleCenter0.png" ? "contrast(1.4) brightness(0.7)" : "none"
         }}
       />
       {tile.active && (

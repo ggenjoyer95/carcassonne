@@ -1,41 +1,50 @@
 // carcassonne-server/helpers/tileSegments.js
 
-// Импортируем определения областей из локального файла
+// Импортируем определения плиток из файла с определениями
 const tileDefinitions = require('../data/tileDefinitions');
 
-// Используем данные из определений для бэкенда
-// Без полигонов, которые нужны только для фронтенда
-const tileAreas = {
-  photo1: tileDefinitions.photo1.map(area => ({
-    name: area.name,
-    type: area.type
-  })),
-  photo2: tileDefinitions.photo2.map(area => ({
-    name: area.name,
-    type: area.type
-  })),
-  castlewithenter: tileDefinitions.castlewithenter.map(area => ({
-    name: area.name,
-    type: area.type
-  }))
-};
+/**
+ * Функция для получения сегментов грани плитки.
+ * Принимает тип плитки и индекс грани (0, 1, 2 или 3).
+ * Возвращает массив сегментов для заданной грани или пустой массив,
+ * если сегменты не найдены.
+ * 
+ * @param {string} tileType - тип плитки, например, "photo1" или "castlewithenter"
+ * @param {number} edgeIndex - индекс грани (0 – север, 1 – восток, 2 – юг, 3 – запад)
+ * @returns {Array} массив сегментов или пустой массив
+ */
+function getEdgeSegments(tileType, edgeIndex) {
+  const tileDefinition = tileDefinitions[tileType];
+  if (!tileDefinition || !tileDefinition.edges) return [];
+  const edge = tileDefinition.edges.find(e => e.edge === edgeIndex);
+  return edge && edge.segments ? edge.segments : [];
+}
 
 /**
- * Находит информацию об области по её имени
- * @param {string} tileType - Тип плитки (например, "photo1")
- * @param {string} areaName - Имя области (например, "cityArea")
- * @returns {Object|null} - Объект с информацией об области или null, если область не найдена
+ * (Опционально) Если у вас есть другие вспомогательные функции для работы с областями, 
+ * вы можете добавить их сюда и экспортировать.
  */
+
+// Для примера добавим функцию findAreaByName для бэкенда:
+const tileAreas = {};
+// Пройти по каждому типу плитки и сохранить области без полигонов (если нужно для бэкенда)
+Object.keys(tileDefinitions).forEach(tileType => {
+  if (tileDefinitions[tileType].areas) {
+    tileAreas[tileType] = tileDefinitions[tileType].areas.map(area => ({
+      name: area.name,
+      type: area.type
+    }));
+  }
+});
+
 function findAreaByName(tileType, areaName) {
-  // Получаем все области для указанного типа плитки
   const areas = tileAreas[tileType];
   if (!areas) return null;
-  
-  // Ищем область с указанным именем
   return areas.find(area => area.name === areaName) || null;
 }
 
 module.exports = {
-  tileAreas,
-  findAreaByName
+  getEdgeSegments,
+  findAreaByName,
+  tileAreas  // если нужно экспортировать для других функций
 };
