@@ -104,7 +104,13 @@ const startGame = async (req, res) => {
       "CastleEdgeRoad0",
       "CastleEdgeRoad1",
       "CastleEdgeRoad2",
-      "CastleEdgeRoad3"
+      "CastleEdgeRoad3",
+      "CastleMini0",
+      "CastleSides0",
+      "CastleSidesEdgeRoad0",
+      "CastleSidesQuad0",
+      "CastleSidesRoad0",
+      "CastleTube0"
     ];
     const chosenTileType = tileTypes[Math.floor(Math.random() * tileTypes.length)];
     const chosenImage = `${chosenTileType}.png`;
