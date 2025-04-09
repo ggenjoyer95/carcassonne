@@ -1,22 +1,12 @@
 import React from "react";
 import TileOverlay from "./TileOverlay";
-import { calculateMeeplePosition } from "../data/tileAreas";
+import Meeple from "./Meeple";
 
 function TileComponent({ tile, tileSize, onAreaClick }) {
-  // Рассчитываем позицию мипла, если он существует
-  let meeplePosition = { x: 0, y: 0 };
-  if (tile.meeple) {
-    meeplePosition = calculateMeeplePosition(
-      tile.meeple.segment,
-      tile.type,
-      tileSize,
-      tile.rotation
-    );
-  }
   return (
     <div style={{ position: "relative", width: tileSize, height: tileSize }}>
       <img
-        src={`/${tile.image}`}
+        src={`/tiles/${tile.image}`}
         alt="Tile"
         style={{
           position: "absolute",
@@ -26,22 +16,21 @@ function TileComponent({ tile, tileSize, onAreaClick }) {
           height: tileSize,
           objectFit: "cover",
           transform: `rotate(${tile.rotation}deg)`,
+          filter: tile.image === "castlewithenter.png" ? "contrast(1.4) brightness(0.7)" : "none"
         }}
       />
       {tile.active && (
         <TileOverlay tile={tile} tileSize={tileSize} onAreaClick={onAreaClick} />
       )}
       {tile.meeple && (
-        <div
+        <Meeple
+          type={tile.meeple.meepleType}
+          color={tile.meeple.color}
+          size={25}
           style={{
             position: "absolute",
-            left: meeplePosition.x - 7.5,
-            top: meeplePosition.y - 7.5,
-            width: "15px",
-            height: "15px",
-            borderRadius: "50%",
-            backgroundColor: tile.meeple.color,
-            border: "1px solid white",
+            left: tile.meeple.offsetX - 9, // корректировка смещения
+            top: tile.meeple.offsetY - 11,
           }}
         />
       )}

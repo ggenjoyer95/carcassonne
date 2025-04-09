@@ -17,6 +17,10 @@ const tileDefinitions = {
   photo2: {
     // Пример: сверху – поле, справа – дорога, снизу – поле, слева – поле
     edges: [EDGE_TYPES.FIELD, EDGE_TYPES.FIELD, EDGE_TYPES.ROAD, EDGE_TYPES.ROAD]
+  },
+  castlewithenter: {
+    // Пример: сверху – поле, справа – дорога, снизу – поле, слева – поле
+    edges: [EDGE_TYPES.CITY, EDGE_TYPES.CITY, EDGE_TYPES.ROAD, EDGE_TYPES.CITY]
   }
 };
 

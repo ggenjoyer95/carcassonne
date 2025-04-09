@@ -36,8 +36,10 @@ const joinGame = async (req, res) => {
     const newPlayer = {
       playerId: `player${game.players.length + 1}`,
       name: playerName,
-      meeples: 7,
+      meeples: 7,   // подданные
+      abbats: 1     // аббаты
     };
+    
 
     game.players.push(newPlayer);
 
@@ -80,45 +82,63 @@ const startGame = async (req, res) => {
     
     game.players.forEach((player, index) => {
       player.color = availableColors[index];
+      // Устанавливаем начальные количества миплов
+      player.meeples = 7;
+      player.abbats = 1;
     });
     
-    // Инициализация игрового поля
-    const images = ["photo1.png", "photo2.png"];
-    const chosenImage = images[Math.floor(Math.random() * images.length)];
-    
+    // Инициализация колоды карточек
+    const images = ["photo1.png", "photo2.png", "castlewithenter.png"]; // Если карточек больше (например, 72) – добавьте их сюда
+    game.deck = [...images]; // создаём копию массива карточек
+    console.log(`Deck после инициализации: ${JSON.stringify(game.deck)}`);
+    // Выбираем случайную карточку для стартовой плитки и удаляем её из колоды
+    const startingIndex = Math.floor(Math.random() * game.deck.length);
+    const startingImage = game.deck.splice(startingIndex, 1)[0];
+    console.log(`Выбрана стартовая карточка: ${startingImage}`);
+    console.log(`Deck после выбора стартовой карточки: ${JSON.stringify(game.deck)}`);
+    // Инициализируем игровое поле с начальной плиткой
     game.board = {};
     game.board["0,0"] = {
       tile: "image",
-      image: chosenImage, // например, "photo1.png"
-      type: chosenImage.replace('.png', ''),
+      image: startingImage, // стартовая карточка
+      type: startingImage.replace('.png', ''),
       offsetX: 40,
       offsetY: 40,
       rotation: 0,
       owner: "system",
     };
-
+    
+    // Выбираем следующую карточку для первого хода
+    // Выбираем случайную карточку для первого хода, но не удаляем её из колоды
+    if (game.deck.length > 0) {
+      const randomIndex = Math.floor(Math.random() * game.deck.length);
+      game.currentTileImage = game.deck[randomIndex]; // НЕ удаляем!
+    } else {
+      game.currentTileImage = startingImage;
+    }
 
     
-    game.currentTileImage = chosenImage;
-    
-    // Добавляем соседей к начальной плитке
+    // Добавляем соседей для начальной плитки
     addNeighbors(game.board, 0, 0);
     
     game.currentMoveMade = false;
     game.currentTurn = game.players[0].playerId;
     game.imageRotation = 0;
     game.status = "active";
-    game.remainingCards = 20;
+    // Обновляем remainingCards как длина колоды (если нужно)
+    game.remainingCards = game.deck.length;
     
     await game.save();
     
-    console.log(`Игра ${gameId} началась! Осталось ${game.remainingCards} карт.`);
+    console.log(`Игра ${gameId} началась! Стартовая карточка: ${startingImage}. Осталось карточек в колоде: ${game.deck.length}`);
     return res.status(200).json(game);
   } catch (error) {
     console.error("Error starting game:", error);
     return res.status(500).json({ errorMessage: "Internal server error" });
   }
 };
+
+
 
 const makeMove = async (req, res) => {
   try {
@@ -153,20 +173,21 @@ const makeMove = async (req, res) => {
 const getGameState = async (req, res) => {
   try {
     const { gameId } = req.params;
-
-    // Find game in database
     const game = await Game.findById(gameId);
-    
     if (!game) {
       return res.status(404).json({ errorMessage: "Игра не найдена" });
     }
-
-    return res.status(200).json(game);
+    const scores = calculateScores(game);
+    // Преобразуем экземпляр игры в обычный объект:
+    const gamePlain = JSON.parse(JSON.stringify(game));
+    const gameWithScores = { ...gamePlain, scores };
+    return res.status(200).json(gameWithScores);
   } catch (error) {
     console.error("Error getting game state:", error);
     return res.status(500).json({ errorMessage: "Internal server error" });
   }
 };
+
 
 const { getEffectiveSides, matchRules } = require("../helpers/matchRules");
 const Game = require("../models/gameModel");
@@ -337,9 +358,6 @@ const placeTile = async (req, res) => {
       active: true   // <== Новое свойство, помечающее активную плитку
     };
 
-
-
-
     // Здесь вызываем функцию проверки установки тайла:
     if (!validateTilePlacement(game.board, newTile, xNum, yNum)) {
       return res.status(400).json({ errorMessage: "Неверное сопоставление граней. Ход недопустим." });
@@ -376,38 +394,52 @@ const endTurn = async (req, res) => {
       return res.status(400).json({ errorMessage: "Вы не поставили плитку в этом ходе" });
     }
 
-    game.remainingCards -= 1;
-    if (game.remainingCards <= 0) {
-      game.status = "finished";
-      await game.save();
-      console.log(`Игра ${gameId} завершена!`);
-      const finalScores = calculateScores(game);
-      console.log("Финальный счет:", finalScores);
-      return res.status(200).json(game);
-    }
-
+    // Сбрасываем флаг хода
     game.currentMoveMade = false;
-    let currentIndex = game.players.findIndex((p) => p.playerId === playerId);
-    let nextIndex = (currentIndex + 1) % game.players.length;
-    game.currentTurn = game.players[nextIndex].playerId;
-    const images = ["photo1.png", "photo2.png"];
-    game.currentTileImage = images[Math.floor(Math.random() * images.length)];
-
-    // Сбросить флаг активности для всех плиток
-    Object.keys(game.board).forEach(key => {
+    Object.keys(game.board).forEach((key) => {
       if (game.board[key]) {
         game.board[key].active = false;
       }
     });
+    // Переключаем текущий ход на следующего игрока
+    let currentIndex = game.players.findIndex((p) => p.playerId === playerId);
+    let nextIndex = (currentIndex + 1) % game.players.length;
+    game.currentTurn = game.players[nextIndex].playerId;
+
+    // Если deck не определён, инициализируем его как пустой массив (хотя он должен быть уже определён)
+    if (!game.deck) {
+      game.deck = [];
+    }
+
+    console.log(`Deck до выбора карточки: ${JSON.stringify(game.deck)}`);
+    
+    // Удаляем текущую карточку из колоды (если она есть)
+    const index = game.deck.indexOf(game.currentTileImage);
+    if (index !== -1) {
+      game.deck.splice(index, 1);
+    }
+    
+    // Если в колоде ещё есть карточки, выбираем новую карточку для следующего хода без удаления
+    if (game.deck.length > 0) {
+      const randomIndex = Math.floor(Math.random() * game.deck.length);
+      game.currentTileImage = game.deck[randomIndex];
+    }
+
+    // Обновляем remainingCards по длине колоды
+    game.remainingCards = game.deck.length;
+
+    // Если после выбора карточки колода пуста, завершаем игру
+    if (game.deck.length === 0) {
+      game.status = "finished";
+      console.log(`Игра ${gameId} завершена!`);
+      const finalScores = calculateScores(game);
+      console.log("Финальный счет:", finalScores);
+    }
+
+    console.log(`Deck после выбора карточки: ${JSON.stringify(game.deck)}`);
+    console.log(`RemainingCards: ${game.remainingCards}`);
 
     await game.save();
-
-    const currentScores = calculateScores(game);
-    console.log("Текущий счет:", currentScores);
-
-    console.log(
-      `Ход игрока ${playerId} завершен. Следующий игрок: ${game.currentTurn}. Новое изображение: ${game.currentTileImage}`
-    );
     return res.status(200).json(game);
   } catch (err) {
     console.error("Ошибка в endTurn:", err);
@@ -417,13 +449,12 @@ const endTurn = async (req, res) => {
 
 
 
-
 const TILE_SIZE = 80;
 
 const placeMeeple = async (req, res) => {
   try {
     const { gameId } = req.params;
-    const { x, y, areaName } = req.body; // x,y – координаты плитки; areaName – имя области
+    const { x, y, areaName, meepleType } = req.body;  // x,y – координаты плитки; areaName – имя области
     const token = req.headers.authorization?.split(" ")[1];
 
     // Получаем игру из базы данных
@@ -473,18 +504,37 @@ const placeMeeple = async (req, res) => {
       return res.status(400).json({ errorMessage: "Указанная область не найдена" });
     }
 
+    // Новая логика: проверка и обновление количества миплов
+    if (meepleType === "аббаты") {
+      if (player.abbats <= 0) {
+        return res.status(400).json({ errorMessage: "Нет миплов данного типа" });
+      }
+      // Уменьшаем количество аббатов
+      player.abbats--;
+    } else { // по умолчанию "подданные"
+      if (player.meeples <= 0) {
+        return res.status(400).json({ errorMessage: "Нет миплов данного типа" });
+      }
+      // Уменьшаем количество подданных
+      player.meeples--;
+    }
+
     // Сохраняем только логическую информацию, без координат
     tile.meeple = {
       color: player.color,
       segment: areaName,
-      segmentType: area.type
-      // Координаты теперь рассчитываются на стороне клиента
+      segmentType: area.type,
+      meepleType: req.body.meepleType,
+      offsetX: req.body.offsetX,  // сохраняем координаты клика
+      offsetY: req.body.offsetY
     };
 
     await game.save();
+    const meepleName = (meepleType === "аббаты") ? "мипл аббат" : "мипл подданный";
     console.log(
-  `Игрок ${playerId} поставил мипл на плитке (${x},${y}) в сегменте "${areaName}" (тип: ${area.type})`
-);
+      `Игрок ${playerId} поставил ${meepleName} на плитке (${x},${y}) в сегменте "${areaName}" (тип: ${area.type})`
+    );
+
     return res.status(200).json(game);
   } catch (err) {
     console.error("Ошибка в placeMeeple:", err);
@@ -515,7 +565,65 @@ const rotateImage = async (req, res) => {
     console.error("Ошибка в rotateImage:", err);
     return res.status(401).json({ errorMessage: "Неверный токен авторизации." });
   }
-};
+  };
+
+  const cancelAction = async (req, res) => {
+    try {
+      const { gameId } = req.params;
+      const token = req.headers.authorization?.split(" ")[1];
+      const game = await Game.findById(gameId);
+      if (!game) {
+        return res.status(404).json({ errorMessage: "Игра не найдена" });
+      }
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const playerId = decoded.playerId;
+      if (game.currentTurn !== playerId) {
+        return res.status(403).json({ errorMessage: "Сейчас не ваш ход" });
+      }
+  
+      // Ищем активную плитку с флагом active: true
+      let activeTileKey = null;
+      for (const key in game.board) {
+        if (game.board[key] && game.board[key].active) {
+          activeTileKey = key;
+          break;
+        }
+      }
+  
+      if (!activeTileKey) {
+        return res.status(400).json({ errorMessage: "Нет действия для отмены" });
+      }
+  
+      const tile = game.board[activeTileKey];
+      const player = game.players.find((p) => p.playerId === playerId);
+      // Если на плитке установлен мипл, удаляем его
+      if (tile.meeple) {
+        // Если на плитке установлен мипл, увеличиваем количество миплов выбранного типа у игрока
+        const type = tile.meeple.meepleType;
+        if (type === "аббаты") {
+          player.abbats++;
+        } else {
+          player.meeples++;
+        }
+        delete tile.meeple;
+        console.log(`Отменён мипл на плитке ${activeTileKey} игроком ${playerId}`);
+      } else {
+        // Если мипла нет, отменяем установку плитки,
+        // устанавливая значение клетки в null вместо удаления ключа
+        game.board[activeTileKey] = null;
+        game.currentMoveMade = false;
+        console.log(`Отменена установка плитки на ${activeTileKey} игроком ${playerId}`);
+      }
+      
+      await game.save();
+      return res.status(200).json(game);
+    } catch (err) {
+      console.error("Ошибка в cancelAction:", err);
+      return res.status(500).json({ errorMessage: "Internal server error" });
+    }
+  };
+  
+  
 
 module.exports = {
   createGame,
@@ -528,4 +636,5 @@ module.exports = {
   endTurn,
   placeMeeple,
   rotateImage,
+  cancelAction,
 };

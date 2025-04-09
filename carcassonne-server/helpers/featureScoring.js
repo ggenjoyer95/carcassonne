@@ -151,7 +151,7 @@ function calculateScores(game) {
       feature.tiles.forEach(tKey => processed.add(tKey));
     }
   });
-  console.log("Текущий счет:", scores);
+  //console.log("Текущий счет:", scores);
   return scores;
 }
 

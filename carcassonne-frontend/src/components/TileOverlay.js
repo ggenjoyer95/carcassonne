@@ -39,7 +39,8 @@ function TileOverlay({ tile, tileSize, onAreaClick }) {
             onMouseLeave={() => setHoveredArea(null)}
             onClick={(e) => {
               e.stopPropagation();
-              onAreaClick(area.name);
+              const coords = getSVGCoordinates(e);
+              onAreaClick(area.name, coords.x, coords.y);
             }}
           />
         );

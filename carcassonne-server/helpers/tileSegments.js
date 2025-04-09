@@ -13,6 +13,10 @@ const tileAreas = {
   photo2: tileDefinitions.photo2.map(area => ({
     name: area.name,
     type: area.type
+  })),
+  castlewithenter: tileDefinitions.castlewithenter.map(area => ({
+    name: area.name,
+    type: area.type
   }))
 };
 

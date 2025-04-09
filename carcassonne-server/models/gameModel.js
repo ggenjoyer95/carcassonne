@@ -9,9 +9,12 @@ class Game {
     this.currentTurn = null;
     this.currentMoveMade = false;
     this.imageRotation = 0;
-    this.remainingCards = 20;
+    // Инициализируем deck и remainingCards
+    this.deck = []; // здесь будут храниться карточки
+    this.remainingCards = 0;
+    this.currentTileImage = "";
   }
-
+  
   // Save game to database
   async save() {
     const gameState = {
@@ -22,7 +25,8 @@ class Game {
       currentMoveMade: this.currentMoveMade,
       imageRotation: this.imageRotation,
       remainingCards: this.remainingCards,
-      currentTileImage: this.currentTileImage
+      currentTileImage: this.currentTileImage,
+      deck: this.deck  // обязательно сохраняем deck!
     };
 
     try {
@@ -75,6 +79,7 @@ class Game {
       game.imageRotation = gameState.imageRotation;
       game.remainingCards = gameState.remainingCards;
       game.currentTileImage = gameState.currentTileImage;
+      game.deck = gameState.deck || []; // Восстанавливаем deck
       
       return game;
     } catch (error) {

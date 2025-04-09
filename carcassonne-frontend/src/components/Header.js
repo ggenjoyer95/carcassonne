@@ -1,11 +1,17 @@
-import { Link } from "react-router-dom";
-
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 function Header() {
+  const location = useLocation();
+
+  // Если текущий путь начинается с "/game/", не рендерим header
+  if (location.pathname.startsWith("/game/")) {
+    return null;
+  }
   return (
     <header
       style={{
         backgroundColor: "#f5f5f5",
-        padding: "10px",
+        padding: "5px",
         textAlign: "center",
       }}
     >
