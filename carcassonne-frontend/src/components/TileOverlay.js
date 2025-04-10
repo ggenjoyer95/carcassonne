@@ -2,22 +2,20 @@ import React, { useState } from "react";
 import { tileAreas } from "../data/tileAreas";
 
 function TileOverlay({ tile, tileSize, onAreaClick }) {
-  // Определяем, что такое areas – проверяем, является ли tileAreas[tile.type] массивом или объектом с массивом в поле "areas"
   const definition = tileAreas[tile.type];
   let areas = [];
   if (Array.isArray(definition)) {
-    // Если для плитки определение возвращено как массив, используем его напрямую
     areas = definition;
   } else if (definition && Array.isArray(definition.areas)) {
-    // Если определение – объект с полем areas
     areas = definition.areas;
   } else {
-    console.warn(`Для плитки типа "${tile.type}" не найдено корректное определение областей.`);
+    console.warn(
+      `Для плитки типа "${tile.type}" не найдено корректное определение областей.`
+    );
   }
 
   const [hoveredArea, setHoveredArea] = useState(null);
 
-  // Функция для получения координат клика в системе координат SVG
   const getSVGCoordinates = (e) => {
     const svg = e.currentTarget.ownerSVGElement;
     if (!svg) return { x: 0, y: 0 };
@@ -34,7 +32,9 @@ function TileOverlay({ tile, tileSize, onAreaClick }) {
       height={tileSize}
       style={{ position: "absolute", top: 0, left: 0, pointerEvents: "all" }}
     >
-      <g transform={`rotate(${tile.rotation}, ${tileSize / 2}, ${tileSize / 2})`}>
+      <g
+        transform={`rotate(${tile.rotation}, ${tileSize / 2}, ${tileSize / 2})`}
+      >
         {areas.map((area) => {
           const points = area.polygon
             .map(([x, y]) => `${x * tileSize},${y * tileSize}`)

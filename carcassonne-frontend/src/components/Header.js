@@ -1,9 +1,8 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
 function Header() {
   const location = useLocation();
 
-  // Если текущий путь начинается с "/game/", не рендерим header
   if (location.pathname.startsWith("/game/")) {
     return null;
   }

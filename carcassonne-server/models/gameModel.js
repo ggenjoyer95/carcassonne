@@ -1,4 +1,4 @@
-const db = require('../db/db');
+const db = require("../db/db");
 
 class Game {
   constructor(gameId) {
@@ -9,13 +9,11 @@ class Game {
     this.currentTurn = null;
     this.currentMoveMade = false;
     this.imageRotation = 0;
-    // Инициализируем deck и remainingCards
-    this.deck = []; // здесь будут храниться карточки
+    this.deck = [];
     this.remainingCards = 0;
     this.currentTileImage = "";
   }
-  
-  // Save game to database
+
   async save() {
     const gameState = {
       gameId: this.gameId,
@@ -26,51 +24,46 @@ class Game {
       imageRotation: this.imageRotation,
       remainingCards: this.remainingCards,
       currentTileImage: this.currentTileImage,
-      deck: this.deck  // обязательно сохраняем deck!
+      deck: this.deck,
     };
 
     try {
-      // Check if game already exists
-      const existingGame = await db('games').where('game_id', this.gameId).first();
-      
+      const existingGame = await db("games")
+        .where("game_id", this.gameId)
+        .first();
+
       if (existingGame) {
-        // Update existing game
-        await db('games')
-          .where('game_id', this.gameId)
-          .update({
-            game_state: gameState,
-            status: this.status,
-            updated_at: db.fn.now()
-          });
+        await db("games").where("game_id", this.gameId).update({
+          game_state: gameState,
+          status: this.status,
+          updated_at: db.fn.now(),
+        });
       } else {
-        // Insert new game
-        await db('games').insert({
+        await db("games").insert({
           game_id: this.gameId,
           game_state: gameState,
-          status: this.status
+          status: this.status,
         });
       }
-      
+
       return true;
     } catch (error) {
-      console.error('Error saving game:', error);
+      console.error("Error saving game:", error);
       return false;
     }
   }
 
-  // Find game by ID
   static async findById(gameId) {
     try {
-      const gameRecord = await db('games').where('game_id', gameId).first();
-      
+      const gameRecord = await db("games").where("game_id", gameId).first();
+
       if (!gameRecord) {
         return null;
       }
-      
+
       const game = new Game(gameId);
       const gameState = gameRecord.game_state;
-      
-      // Populate game object with stored state
+
       game.board = gameState.board || {};
       game.players = gameState.players || [];
       game.status = gameRecord.status;
@@ -79,28 +72,25 @@ class Game {
       game.imageRotation = gameState.imageRotation;
       game.remainingCards = gameState.remainingCards;
       game.currentTileImage = gameState.currentTileImage;
-      game.deck = gameState.deck || []; // Восстанавливаем deck
-      
+      game.deck = gameState.deck || [];
+
       return game;
     } catch (error) {
-      console.error('Error finding game:', error);
+      console.error("Error finding game:", error);
       return null;
     }
   }
 
-  // Update game status
   async updateStatus(status) {
     this.status = status;
     try {
-      await db('games')
-        .where('game_id', this.gameId)
-        .update({
-          status: status,
-          updated_at: db.fn.now()
-        });
+      await db("games").where("game_id", this.gameId).update({
+        status: status,
+        updated_at: db.fn.now(),
+      });
       return true;
     } catch (error) {
-      console.error('Error updating game status:', error);
+      console.error("Error updating game status:", error);
       return false;
     }
   }

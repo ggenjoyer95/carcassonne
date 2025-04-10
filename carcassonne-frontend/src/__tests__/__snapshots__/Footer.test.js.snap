@@ -1,0 +1,13 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Footer component matches snapshot 1`] = `
+<DocumentFragment>
+  <footer
+    style="background-color: rgb(245, 245, 245); padding: 10px; margin-top: 20px; text-align: center;"
+  >
+    <p>
+      © 2025 Carcassonne.
+    </p>
+  </footer>
+</DocumentFragment>
+`;
