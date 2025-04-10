@@ -86,25 +86,25 @@ const startGame = async (req, res) => {
     const tileTypes = [
       "CastleCenter0",
       "CastleCenterEntry0",
-      "CastleCenterEntry1",
-      "CastleCenterEntry2",
-      "CastleCenterEntry3",
-      "CastleCenterSide0",
-      "CastleCenterSide1",
-      "CastleCenterSide2",
+      "CastleCenterEntry0",
+      "CastleCenterEntry0",
+      "CastleCenterEntry0",
       "CastleCenterSide3",
-      "CastleCenterSides0",
-      "CastleCenterSides1",
-      "CastleCenterSides2",
+      "CastleCenterSide3",
+      "CastleCenterSide3",
+      "CastleCenterSide3",
       "CastleCenterSides3",
-      "CastleEdge0",
-      "CastleEdge1",
-      "CastleEdge2",
-      "CastleEdge",
-      "CastleEdgeRoad0",
-      "CastleEdgeRoad1",
+      "CastleCenterSides3",
+      "CastleCenterSides3",
+      "CastleCenterSides3",
+      "CastleEdge3",
+      "CastleEdge3",
+      "CastleEdge3",
+      "CastleEdge3",
       "CastleEdgeRoad2",
-      "CastleEdgeRoad3",
+      "CastleEdgeRoad2",
+      "CastleEdgeRoad2",
+      "CastleEdgeRoad2",
       "CastleMini0",
       "CastleSides0",
       "CastleSidesEdgeRoad0",
@@ -421,7 +421,35 @@ const endTurn = async (req, res) => {
     game.currentTurn = game.players[nextIndex].playerId;
     
     // Используем новые типы плиток
-    const tileTypes = ["CastleCenter0", "CastleCenterEntry0", "CastleCenterEntry1", "CastleCenterEntry2", "CastleCenterEntry3", "CastleEdgeRoad0", "CastleEdgeRoad1", "CastleEdgeRoad2", "CastleEdgeRoad3"];
+    const tileTypes = [
+      "CastleCenter0",
+      "CastleCenterEntry0",
+      "CastleCenterEntry0",
+      "CastleCenterEntry0",
+      "CastleCenterEntry0",
+      "CastleCenterSide3",
+      "CastleCenterSide3",
+      "CastleCenterSide3",
+      "CastleCenterSide3",
+      "CastleCenterSides3",
+      "CastleCenterSides3",
+      "CastleCenterSides3",
+      "CastleCenterSides3",
+      "CastleEdge3",
+      "CastleEdge3",
+      "CastleEdge3",
+      "CastleEdge3",
+      "CastleEdgeRoad2",
+      "CastleEdgeRoad2",
+      "CastleEdgeRoad2",
+      "CastleEdgeRoad2",
+      "CastleMini0",
+      "CastleSides0",
+      "CastleSidesEdgeRoad0",
+      "CastleSidesQuad0",
+      "CastleSidesRoad0",
+      "CastleTube0"
+    ];
     const chosenTileType = tileTypes[Math.floor(Math.random() * tileTypes.length)];
     game.currentTileImage = `${chosenTileType}.png`;
 
@@ -532,7 +560,10 @@ const placeMeeple = async (req, res) => {
       const segments = getEdgeSegments(tile.type, edgeIndex);
       
       for (const segment of segments) {
-        if (segment.area === areaName) {
+        // Check if segment.area matches areaName exactly or if areaName starts with segment.area
+        // This handles cases where area names in the areas section have numbers (like "castle1")
+        // but the segment area names don't (just "castle")
+        if (segment.area === areaName || (areaName.startsWith(segment.area) && /^[a-zA-Z]+\d+$/.test(areaName))) {
           segmentGroup = segment.group;
           break;
         }
