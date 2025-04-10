@@ -1,76 +1,80 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import Cookies from "js-cookie";
+import { AuthContext } from "../components/AuthContext";
 
 function CreateGame() {
-  const [playerName, setPlayerName] = useState("");
+  const { user } = useContext(AuthContext);
+  const [playerName, setPlayerName] = useState(user?.username || "");
   const navigate = useNavigate();
 
   const handleCreateGame = async () => {
     try {
-      const response = await fetch(
+      const createRes = await fetch(
         `${process.env.REACT_APP_API_URL}/game/create`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
         }
       );
+      if (!createRes.ok) throw new Error("Ошибка при создании игры");
+      const { gameId } = await createRes.json();
 
-      if (response.ok) {
-        const data = await response.json();
-        const gameId = data.gameId;
-        Cookies.set(`creator_${gameId}`, "true");
-        const joinResponse = await fetch(
-          `${process.env.REACT_APP_API_URL}/game/${gameId}/join`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ code: "1234", playerName }),
-          }
-        );
+      Cookies.set(`creator_${gameId}`, "true");
 
-        if (joinResponse.ok) {
-          const joinData = await joinResponse.json();
-          if (joinData.token) {
-            localStorage.setItem("jwt", joinData.token);
-          }
-          navigate(`/lobby/${gameId}`);
-        } else {
-          console.error("Ошибка при подключении к игре");
+      const joinRes = await fetch(
+        `${process.env.REACT_APP_API_URL}/game/${gameId}/join`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: "1234", playerName }),
         }
-      } else {
-        console.error("Ошибка при создании игры");
+      );
+      if (!joinRes.ok) {
+        const err = await joinRes.json();
+        throw new Error(err.errorMessage || "Ошибка при подключении к игре");
       }
+      const joinData = await joinRes.json();
+
+      if (joinData.token) {
+        localStorage.setItem("jwt", joinData.token);
+      }
+      navigate(`/lobby/${gameId}`);
     } catch (err) {
-      console.error("Ошибка соединения с сервером:", err);
+      console.error(err);
     }
   };
 
   return (
-    <div style={{ padding: "20px", textAlign: "center" }}>
+    <div
+      style={{ margin: "40px auto", maxWidth: "400px", textAlign: "center" }}
+    >
       <h2>Создать игру</h2>
-      <div style={{ marginBottom: "10px" }}>
-        <label>Ваше имя:</label>
-        <input
-          type="text"
-          value={playerName}
-          onChange={(e) => setPlayerName(e.target.value)}
-          required
-          maxLength="12"
-          style={{ marginLeft: "10px", padding: "5px" }}
-        />
-      </div>
+
+      {}
+      {!user && (
+        <div style={{ marginBottom: "10px", textAlign: "left" }}>
+          <label style={{ display: "block", marginBottom: "5px" }}>
+            Ваше имя:
+          </label>
+          <input
+            type="text"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            required
+            maxLength="12"
+            style={{ padding: "5px", width: "100%" }}
+          />
+        </div>
+      )}
+
       <button
         onClick={handleCreateGame}
         disabled={!playerName.trim()}
         style={{
           padding: "10px 20px",
           fontSize: "16px",
-          cursor: "pointer",
+          cursor: playerName.trim() ? "pointer" : "not-allowed",
           backgroundColor: playerName.trim() ? "#007BFF" : "#CCCCCC",
           color: "#fff",
           border: "none",

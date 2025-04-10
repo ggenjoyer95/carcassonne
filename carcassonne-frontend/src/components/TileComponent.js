@@ -16,11 +16,15 @@ function TileComponent({ tile, tileSize, onAreaClick }) {
           height: tileSize,
           objectFit: "cover",
           transform: `rotate(${tile.rotation}deg)`,
-          filter: tile.image === "castlewithenter.png" ? "contrast(1.4) brightness(0.7)" : "none"
+          filter: "contrast(1.4) brightness(0.7)",
         }}
       />
       {tile.active && (
-        <TileOverlay tile={tile} tileSize={tileSize} onAreaClick={onAreaClick} />
+        <TileOverlay
+          tile={tile}
+          tileSize={tileSize}
+          onAreaClick={onAreaClick}
+        />
       )}
       {tile.meeple && (
         <Meeple
@@ -29,7 +33,7 @@ function TileComponent({ tile, tileSize, onAreaClick }) {
           size={25}
           style={{
             position: "absolute",
-            left: tile.meeple.offsetX - 9, // корректировка смещения
+            left: tile.meeple.offsetX - 9,
             top: tile.meeple.offsetY - 11,
           }}
         />

@@ -4,7 +4,7 @@ import TileComponent from "./TileComponent";
 const CarcassonneMap = ({
   board,
   onPlaceTile,
-  onPlaceMeeple,  // функция установки мипла
+  onPlaceMeeple,
   isCurrentTurn,
   myColor,
   myId,
@@ -72,11 +72,10 @@ const CarcassonneMap = ({
                   )}, ${relY.toFixed(1)})`
                 );
                 if (isCurrentTurn) {
-                  // Вызываем onPlaceMeeple и передаём координаты клика
                   onPlaceMeeple(x, y, areaName, relX, relY);
                 }
               }}
-            />          
+            />
           )}
         </div>
       ))}
