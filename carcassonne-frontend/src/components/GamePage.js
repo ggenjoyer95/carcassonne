@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import CarcassonneMap from "./CarcassonneMap";
-// В начале файла, где используется handleSkipTurn
 
 function GamePage() {
   const { gameId } = useParams();
@@ -11,7 +10,7 @@ function GamePage() {
   const [error, setError] = useState("");
   const [scale, setScale] = useState(1);
   const token = localStorage.getItem("jwt");
-  const [selectedMeepleType, setSelectedMeepleType] = useState("подданные"); // начальное значение
+  const [selectedMeepleType, setSelectedMeepleType] = useState("подданные");
 
   let playerId = "";
   try {
@@ -76,7 +75,6 @@ function GamePage() {
   };
 
   const handlePlaceMeeple = async (x, y, areaName, relX, relY) => {
-    // Проверка количества миплов как раньше...
     const myPlayer = gameState.players.find((p) => p.playerId === playerId);
     const myMeeples = myPlayer ? myPlayer.meeples : 0;
     const myAbbats = myPlayer ? myPlayer.abbats : 0;
@@ -97,12 +95,19 @@ function GamePage() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ x, y, areaName, meepleType: selectedMeepleType, offsetX: relX, offsetY: relY }),
+          body: JSON.stringify({
+            x,
+            y,
+            areaName,
+            meepleType: selectedMeepleType,
+            offsetX: relX,
+            offsetY: relY,
+          }),
         }
       );
       if (response.ok) {
         const data = await response.json();
-        setGameState(data);  // Обновляем состояние игры
+        setGameState(data);
         setError("");
       } else {
         const errorData = await response.json();
@@ -111,7 +116,7 @@ function GamePage() {
     } catch (err) {
       setError("Ошибка соединения с сервером.");
     }
-  };  
+  };
   const handleSkipTurn = async () => {
     try {
       const response = await fetch(
@@ -133,7 +138,7 @@ function GamePage() {
       setError("Ошибка соединения с сервером.");
     }
   };
-  
+
   const handleEndTurn = async () => {
     try {
       const response = await fetch(
@@ -179,7 +184,7 @@ function GamePage() {
   const handleExit = () => {
     navigate("/");
   };
-  
+
   const handleCancelAction = async () => {
     try {
       const response = await fetch(
@@ -188,8 +193,8 @@ function GamePage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          }
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
       if (response.ok) {
@@ -228,13 +233,16 @@ function GamePage() {
       <h2 style={{ marginTop: -20 }}>Игра {gameId}</h2>
       <p>
         Текущий ход:{" "}
-        {gameState.players.find((p) => p.playerId === gameState.currentTurn)?.name}
+        {
+          gameState.players.find((p) => p.playerId === gameState.currentTurn)
+            ?.name
+        }
       </p>
-      {/* Подсчет оставшихся карт */}
+      {}
       <p>Осталось {gameState.remainingCards} карт</p>
-      
-      {/* Объединенный блок с ошибками и инструкциями */}
-      {(error || isMyTurn) ? (
+
+      {}
+      {error || isMyTurn ? (
         <div
           style={{
             margin: "10px auto",
@@ -244,7 +252,7 @@ function GamePage() {
             backgroundColor: "rgba(255,0,0,0.1)",
             textAlign: "center",
             width: "50%",
-            maxWidth: "50%"
+            maxWidth: "50%",
           }}
         >
           {error ? (
@@ -259,14 +267,14 @@ function GamePage() {
           ) : null}
         </div>
       ) : null}
-        
-      {/* Контейнер для игрового поля и панели справа */}
+
+      {}
       <div style={{ display: "flex", alignItems: "flex-start", width: "100%" }}>
         <div
           style={{
             width: "100%",
-            maxHeight: "120vh",  // игровая зона будет занимать максимум 80% высоты окна
-            overflowY: "auto",  // если содержимое превышает высоту, появляется вертикальная прокрутка
+            maxHeight: "120vh",
+            overflowY: "auto",
             border: "1px solid #ccc",
             margin: "0 auto",
             position: "relative",
@@ -275,11 +283,11 @@ function GamePage() {
             justifyContent: "center",
           }}
         >
-          {/* Внутренний контейнер с масштабированием */}
+          {}
           <div
             style={{
               transform: `scale(${scale})`,
-              transformOrigin: "center center"
+              transformOrigin: "center center",
             }}
           >
             <CarcassonneMap
@@ -292,15 +300,15 @@ function GamePage() {
             />
           </div>
         </div>
-  
-        {/* Панель с кнопками масштабирования и счетом игры справа */}
+
+        {}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             gap: "10px",
             paddingTop: "10px",
-            alignItems: "center"
+            alignItems: "center",
           }}
         >
           <button
@@ -315,21 +323,25 @@ function GamePage() {
           >
             Отдалить
           </button>
-  
-          {/* Таблица счета игры */}
+
+          {}
           <div style={{ marginTop: "20px", width: "100%" }}>
             <h3 style={{ fontSize: "16px", margin: "10px 0" }}>Счёт игры</h3>
             <table
               style={{
                 margin: "0 auto",
                 borderCollapse: "collapse",
-                width: "90%"
+                width: "90%",
               }}
             >
               <thead>
                 <tr>
-                  <th style={{ border: "1px solid #ccc", padding: "5px" }}>Игрок</th>
-                  <th style={{ border: "1px solid #ccc", padding: "5px" }}>Очки</th>
+                  <th style={{ border: "1px solid #ccc", padding: "5px" }}>
+                    Игрок
+                  </th>
+                  <th style={{ border: "1px solid #ccc", padding: "5px" }}>
+                    Очки
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -339,7 +351,8 @@ function GamePage() {
                       {player.name}
                     </td>
                     <td style={{ border: "1px solid #ccc", padding: "5px" }}>
-                      {gameState.scores && gameState.scores[player.playerId] !== undefined
+                      {gameState.scores &&
+                      gameState.scores[player.playerId] !== undefined
                         ? gameState.scores[player.playerId]
                         : 0}
                     </td>
@@ -348,25 +361,26 @@ function GamePage() {
               </tbody>
             </table>
           </div>
-  
-          {/* Кнопки выбора типа миплов */}
+
+          {}
           <div
             style={{
               display: "flex",
               justifyContent: "center",
               gap: "10px",
-              marginTop: "10px"
+              marginTop: "10px",
             }}
           >
             <button
               onClick={() => setSelectedMeepleType("подданные")}
               style={{
                 padding: "8px 16px",
-                backgroundColor: selectedMeepleType === "подданные" ? "#555" : "#ccc",
+                backgroundColor:
+                  selectedMeepleType === "подданные" ? "#555" : "#ccc",
                 color: selectedMeepleType === "подданные" ? "#fff" : "#000",
                 border: "none",
                 borderRadius: "4px",
-                cursor: "pointer"
+                cursor: "pointer",
               }}
             >
               подданные ({myMeeples})
@@ -375,11 +389,12 @@ function GamePage() {
               onClick={() => setSelectedMeepleType("аббаты")}
               style={{
                 padding: "8px 16px",
-                backgroundColor: selectedMeepleType === "аббаты" ? "#555" : "#ccc",
+                backgroundColor:
+                  selectedMeepleType === "аббаты" ? "#555" : "#ccc",
                 color: selectedMeepleType === "аббаты" ? "#fff" : "#000",
                 border: "none",
                 borderRadius: "4px",
-                cursor: "pointer"
+                cursor: "pointer",
               }}
             >
               аббаты ({myAbbats})
@@ -387,15 +402,15 @@ function GamePage() {
           </div>
         </div>
       </div>
-      
-      {/* Блок с кнопками управления ходом, поворотом, отменой действия и карточкой */}
+
+      {}
       <div
         style={{
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           marginTop: "5px",
-          gap: "5px"
+          gap: "5px",
         }}
       >
         <div
@@ -403,7 +418,7 @@ function GamePage() {
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            gap: "20px"
+            gap: "20px",
           }}
         >
           <button
@@ -412,7 +427,7 @@ function GamePage() {
             style={{
               padding: "8px 16px",
               fontSize: "14px",
-              cursor: !isMyTurn ? "not-allowed" : "pointer"
+              cursor: !isMyTurn ? "not-allowed" : "pointer",
             }}
           >
             Повернуть
@@ -424,7 +439,9 @@ function GamePage() {
               padding: "8px 16px",
               fontSize: "14px",
               cursor:
-                !isMyTurn || !gameState.currentMoveMade ? "not-allowed" : "pointer"
+                !isMyTurn || !gameState.currentMoveMade
+                  ? "not-allowed"
+                  : "pointer",
             }}
           >
             Отменить действие
@@ -436,44 +453,43 @@ function GamePage() {
               padding: "8px 16px",
               fontSize: "14px",
               cursor:
-                !isMyTurn || !tilePlacedThisTurn ? "not-allowed" : "pointer"
+                !isMyTurn || !tilePlacedThisTurn ? "not-allowed" : "pointer",
             }}
           >
             Сделать ход
-            </button>
-              <button
-                onClick={handleExit}
-                style={{
-                  padding: "8px 16px",
-                  fontSize: "14px",
-                  cursor: "pointer",
-                }}
-              >
-                Выйти
-              </button>
-            </div>
-            <button
-              onClick={handleSkipTurn}
-              disabled={!isMyTurn} // Кнопка доступна, если это ход игрока
-              style={{
-                padding: "8px 16px",
-                fontSize: "14px",
-                cursor: !isMyTurn ? "not-allowed" : "pointer"
-              }}
-            >
-              Пропустить ход
-            </button>
+          </button>
+          <button
+            onClick={handleExit}
+            style={{
+              padding: "8px 16px",
+              fontSize: "14px",
+              cursor: "pointer",
+            }}
+          >
+            Выйти
+          </button>
+        </div>
+        <button
+          onClick={handleSkipTurn}
+          disabled={!isMyTurn}
+          style={{
+            padding: "8px 16px",
+            fontSize: "14px",
+            cursor: !isMyTurn ? "not-allowed" : "pointer",
+          }}
+        >
+          Пропустить ход
+        </button>
 
-  
         {isMyTurn && !tilePlacedThisTurn && (
           <div>
             <img
               src={`/tiles/${gameState.currentTileImage}`}
               alt="Текущее изображение для плиток"
               style={{
-                width: "90px",      // фиксированная ширина
-                height: "90px",     // фиксированная высота
-                objectFit: "cover", // изображение масштабируется и обрезается по центру
+                width: "90px",
+                height: "90px",
+                objectFit: "cover",
                 transform: `rotate(${gameState.imageRotation}deg)`,
                 transition: "transform 0.3s ease",
               }}
