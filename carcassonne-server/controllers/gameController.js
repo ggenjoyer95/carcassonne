@@ -83,7 +83,6 @@ const startGame = async (req, res) => {
       player.meeples = 7;
       player.abbats = 1;
     });
-
     const images = [
       "CastleCenter0.png",
       "CastleCenterEntry0.png",
