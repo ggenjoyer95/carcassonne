@@ -11,7 +11,24 @@ const PORT = process.env.PORT || 8080;
 
 app.use(cors());
 app.use(bodyParser.json());
-app.use(cors({ origin: "http://localhost:3000" }));
+const allowed = [
+  "http://localhost:3000",
+  "https://carcboard.ru",
+  "https://carcassonne.onrender.com",
+];
+
+app.use(
+  require("cors")({
+    origin: (origin, cb) => {
+      if (!origin || allowed.includes(origin)) {
+        cb(null, true);
+      } else {
+        cb(new Error("CORS policy violation"), false);
+      }
+    },
+    credentials: true,
+  })
+);
 
 const gameRoutes = require("./routes/gameRoutes");
 const definitionsRoutes = require("./routes/definitionsRoutes");
