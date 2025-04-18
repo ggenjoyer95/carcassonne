@@ -93,40 +93,7 @@
 <a name='L28'></a><a href='#L28'>28</a>
 <a name='L29'></a><a href='#L29'>29</a>
 <a name='L30'></a><a href='#L30'>30</a>
-<a name='L31'></a><a href='#L31'>31</a>
-<a name='L32'></a><a href='#L32'>32</a>
-<a name='L33'></a><a href='#L33'>33</a>
-<a name='L34'></a><a href='#L34'>34</a>
-<a name='L35'></a><a href='#L35'>35</a>
-<a name='L36'></a><a href='#L36'>36</a>
-<a name='L37'></a><a href='#L37'>37</a>
-<a name='L38'></a><a href='#L38'>38</a>
-<a name='L39'></a><a href='#L39'>39</a>
-<a name='L40'></a><a href='#L40'>40</a>
-<a name='L41'></a><a href='#L41'>41</a>
-<a name='L42'></a><a href='#L42'>42</a>
-<a name='L43'></a><a href='#L43'>43</a>
-<a name='L44'></a><a href='#L44'>44</a>
-<a name='L45'></a><a href='#L45'>45</a>
-<a name='L46'></a><a href='#L46'>46</a>
-<a name='L47'></a><a href='#L47'>47</a>
-<a name='L48'></a><a href='#L48'>48</a>
-<a name='L49'></a><a href='#L49'>49</a>
-<a name='L50'></a><a href='#L50'>50</a>
-<a name='L51'></a><a href='#L51'>51</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L31'></a><a href='#L31'>31</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
@@ -135,14 +102,7 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">28x</span>
 <span class="cline-any cline-yes">92x</span>
@@ -163,41 +123,21 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// carcassonne-server/helpers/tileSegments.js
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const tileDefinitions = require("../data/tileDefinitions");
 &nbsp;
-// Импортируем определения плиток из файла с определениями
-const tileDefinitions = require('../data/tileDefinitions');
-&nbsp;
-/**
- * Функция для получения сегментов грани плитки.
- * Принимает тип плитки и индекс грани (0, 1, 2 или 3).
- * Возвращает массив сегментов для заданной грани или пустой массив,
- * если сегменты не найдены.
- * 
- * @param {string} tileType - тип плитки, например, "photo1" или "castlewithenter"
- * @param {number} edgeIndex - индекс грани (0 – север, 1 – восток, 2 – юг, 3 – запад)
- * @returns {Array} массив сегментов или пустой массив
- */
 function getEdgeSegments(tileType, edgeIndex) {
   const tileDefinition = tileDefinitions[tileType];
   <span class="missing-if-branch" title="if path not taken" >I</span>if (!tileDefinition || !tileDefinition.edges) <span class="cstat-no" title="statement not covered" >return [];</span>
-  const edge = tileDefinition.edges.find(e =&gt; e.edge === edgeIndex);
+  const edge = tileDefinition.edges.find((e) =&gt; e.edge === edgeIndex);
   return edge &amp;&amp; edge.segments ? edge.segments : <span class="branch-1 cbranch-no" title="branch not covered" >[];</span>
 }
 &nbsp;
-/**
- * (Опционально) Если у вас есть другие вспомогательные функции для работы с областями, 
- * вы можете добавить их сюда и экспортировать.
- */
-&nbsp;
-// Для примера добавим функцию findAreaByName для бэкенда:
 const tileAreas = {};
-// Пройти по каждому типу плитки и сохранить области без полигонов (если нужно для бэкенда)
-Object.keys(tileDefinitions).forEach(tileType =&gt; {
+Object.keys(tileDefinitions).forEach((tileType) =&gt; {
   <span class="missing-if-branch" title="else path not taken" >E</span>if (tileDefinitions[tileType].areas) {
-    tileAreas[tileType] = tileDefinitions[tileType].areas.map(area =&gt; ({
+    tileAreas[tileType] = tileDefinitions[tileType].areas.map((area) =&gt; ({
       name: area.name,
-      type: area.type
+      type: area.type,
     }));
   }
 });
@@ -205,13 +145,13 @@ Object.keys(tileDefinitions).forEach(tileType =&gt; {
 function <span class="fstat-no" title="function not covered" >findAreaByName(</span>tileType, areaName) {
   const areas = <span class="cstat-no" title="statement not covered" >tileAreas[tileType];</span>
 <span class="cstat-no" title="statement not covered" >  if (!areas) <span class="cstat-no" title="statement not covered" >return null;</span></span>
-<span class="cstat-no" title="statement not covered" >  return areas.find(<span class="fstat-no" title="function not covered" >ar</span>ea =&gt; <span class="cstat-no" title="statement not covered" >area.name === areaName)</span> || null;</span>
+<span class="cstat-no" title="statement not covered" >  return areas.find(<span class="fstat-no" title="function not covered" >(a</span>rea) =&gt; <span class="cstat-no" title="statement not covered" >area.name === areaName)</span> || null;</span>
 }
 &nbsp;
 module.exports = {
   getEdgeSegments,
   findAreaByName,
-  tileAreas  // если нужно экспортировать для других функций
+  tileAreas,
 };
 &nbsp;</pre></td></tr></table></pre>
 
@@ -220,7 +160,7 @@ module.exports = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-04-09T23:37:45.780Z
+                at 2025-04-10T19:12:40.608Z
             </div>
         <script src="../prettify.js"></script>
         <script>

@@ -20,19 +20,21 @@ function LobbyPage() {
           `${process.env.REACT_APP_API_URL}/game/${gameId}`,
           {
             method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           }
         );
 
         if (response.ok) {
           const data = await response.json();
-          setPlayers(data.players);
+          const active = (data.players || []).filter((p) => !p.left);
+          setPlayers(active);
 
           if (data.status === "active") {
             navigate(`/game/${gameId}`);
           }
+        } else if (response.status === 404) {
+          Cookies.remove(`creator_${gameId}`);
+          navigate("/");
         } else {
           console.error("Ошибка при получении данных лобби");
         }
@@ -77,24 +79,20 @@ function LobbyPage() {
   const handleLeaveLobby = async () => {
     try {
       const token = localStorage.getItem("jwt");
-      const response = await fetch(
+      const res = await fetch(
         `${process.env.REACT_APP_API_URL}/game/${gameId}/leave`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
-
-      if (response.ok) {
-        navigate("/");
-      } else {
-        const errorData = await response.json();
-        setError(errorData.errorMessage || "Ошибка при выходе из лобби.");
+      const data = await res.json();
+      if (data.deleted) {
+        Cookies.remove(`creator_${gameId}`);
       }
+      navigate("/");
     } catch (err) {
-      setError("Ошибка соединения с сервером.");
+      setError("Ошибка при выходе из лобби.");
     }
   };
 

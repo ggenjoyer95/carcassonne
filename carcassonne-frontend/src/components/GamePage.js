@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import CarcassonneMap from "./CarcassonneMap";
+import Cookies from "js-cookie";
 
 function GamePage() {
   const { gameId } = useParams();
@@ -181,8 +182,34 @@ function GamePage() {
       setError("Ошибка соединения с сервером.");
     }
   };
-  const handleExit = () => {
-    navigate("/");
+  const handleExit = async () => {
+    const isCreator = Cookies.get(`creator_${gameId}`) === "true";
+    const url = `${process.env.REACT_APP_API_URL}/game/${gameId}`;
+    const headers = { Authorization: `Bearer ${token}` };
+
+    try {
+      if (isCreator) {
+        const res = await fetch(`${url}/finish`, {
+          method: "POST",
+          headers,
+        });
+        if (!res.ok) {
+          console.error("Ошибка досрочного завершения игры");
+        }
+        navigate("/finish", { state: gameState });
+      } else {
+        const res = await fetch(`${url}/leave`, {
+          method: "POST",
+          headers,
+        });
+        if (!res.ok) {
+          console.error("Ошибка выхода из игры");
+        }
+        navigate("/");
+      }
+    } catch (err) {
+      console.error("Ошибка при выходе:", err);
+    }
   };
 
   const handleCancelAction = async () => {

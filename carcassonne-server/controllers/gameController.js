@@ -1,7 +1,8 @@
 const { validateTilePlacement } = require("../helpers/matchRules");
 const { findAreaByName } = require("../helpers/tileSegments");
 const { calculateScores } = require("../helpers/featureScoring");
-
+const GameHistory = require("../models/gameHistoryModel");
+const db = require("../db/db");
 const games = {};
 const jwt = require("jsonwebtoken");
 
@@ -31,7 +32,12 @@ const joinGame = async (req, res) => {
       console.log(`Ошибка: Игра с ID ${gameId} не найдена`);
       return res.status(404).json({ errorMessage: "Игра не найдена" });
     }
-
+    if (game.players.some((p) => p.name === playerName && !p.left)) {
+      return res.status(400).json({
+        errorMessage:
+          "Уже есть пользователь с таким именем. Укажите другое имя.",
+      });
+    }
     const newPlayer = {
       playerId: `player${game.players.length + 1}`,
       name: playerName,
@@ -68,7 +74,7 @@ const startGame = async (req, res) => {
       console.log(`Ошибка: Игра с ID ${gameId} не найдена`);
       return res.status(404).json({ errorMessage: "Игра не найдена" });
     }
-
+    game.players = game.players.filter((p) => !p.left);
     const availableColors = ["yellow", "red", "green", "blue", "black"];
     availableColors.sort(() => Math.random() - 0.5);
 
@@ -83,26 +89,42 @@ const startGame = async (req, res) => {
       player.meeples = 7;
       player.abbats = 1;
     });
+
     const images = [
       "CastleCenter0.png",
+
       "CastleCenterEntry0.png",
+      "CastleCenterEntry1.png",
+      "CastleCenterEntry2.png",
       "CastleCenterEntry3.png",
+
+      "CastleCenterSide0.png",
+      "CastleCenterSide1.png",
+      "CastleCenterSide2.png",
       "CastleCenterSide3.png",
+
+      "CastleCenterSides0.png",
+      "CastleCenterSides1.png",
+      "CastleCenterSides2.png",
       "CastleCenterSides3.png",
+
+      "CastleEdge0.png",
+      "CastleEdge1.png",
+      "CastleEdge2.png",
       "CastleEdge3.png",
+
+      "CastleEdgeRoad0.png",
+      "CastleEdgeRoad1.png",
       "CastleEdgeRoad2.png",
+      "CastleEdgeRoad3.png",
+
       "CastleMini0.png",
-      "CastleMini0.png",
+
       "CastleSides0.png",
-      "CastleSides0.png",
-      "CastleSidesEdgeRoad0.png",
-      "CastleSidesEdgeRoad0.png",
-      "CastleSidesEdgeRoad0.png",
+
       "CastleSidesEdgeRoad0.png",
       "CastleSidesQuad0.png",
       "CastleSidesRoad0.png",
-      "CastleSidesRoad0.png",
-      "CastleTube0.png",
       "CastleTube0.png",
     ];
 
@@ -169,9 +191,13 @@ const makeMove = async (req, res) => {
     if (!player) {
       return res.status(404).json({ errorMessage: "Игрок не найден" });
     }
-    let currentIndex = game.players.findIndex((p) => p.playerId === playerId);
-    let nextIndex = (currentIndex + 1) % game.players.length;
-    game.currentTurn = game.players[nextIndex].playerId;
+    const currentIndex = game.players.findIndex((p) => p.playerId === playerId);
+    const nextIndex = getNextActivePlayerIndex(game, currentIndex);
+    if (nextIndex === null) {
+      game.status = "finished";
+    } else {
+      game.currentTurn = game.players[nextIndex].playerId;
+    }
     await game.save();
     console.log(`Игрок ${player.name} сделал ход. Цвет: ${player.color}`);
     return res.status(200).json(game);
@@ -233,30 +259,30 @@ const leaveGame = async (req, res) => {
       return res.status(404).json({ errorMessage: "Игра не найдена" });
     }
 
-    const playerIndex = game.players.findIndex(
-      (player) => player.playerId === playerId
-    );
-    if (playerIndex === -1) {
+    const idx = game.players.findIndex((p) => p.playerId === playerId);
+    if (idx === -1) {
       return res
         .status(404)
         .json({ errorMessage: "Игрок не найден в этой игре." });
     }
 
-    const [removedPlayer] = game.players.splice(playerIndex, 1);
-    console.log(`Игрок ${removedPlayer.name} покинул игру ${gameId}.`);
+    const isCreator = game.players[0].playerId === playerId;
 
-    if (game.players.length === 0) {
-      console.log(`Игра ${gameId} удалена, так как все игроки покинули лобби.`);
+    if (isCreator) {
+      await db("games").where("game_id", gameId).del();
+      console.log(`Создатель ${playerId} удалил игру ${gameId} из базы`);
+      return res.status(200).json({ message: "Игра удалена", deleted: true });
     } else {
+      game.players[idx].left = true;
       await game.save();
+      console.log(`Игрок ${playerId} вышел из лобби ${gameId}`);
+      return res
+        .status(200)
+        .json({ message: "Вы успешно покинули игру", deleted: false });
     }
-
-    return res.status(200).json({ message: "Вы успешно покинули игру." });
   } catch (err) {
     console.error("Ошибка в leaveGame:", err);
-    return res
-      .status(401)
-      .json({ errorMessage: "Неверный токен авторизации." });
+    return res.status(500).json({ errorMessage: "Internal server error" });
   }
 };
 
@@ -402,10 +428,13 @@ const endTurn = async (req, res) => {
         game.board[key].active = false;
       }
     });
-    let currentIndex = game.players.findIndex((p) => p.playerId === playerId);
-    let nextIndex = (currentIndex + 1) % game.players.length;
-    game.currentTurn = game.players[nextIndex].playerId;
-
+    const currentIndex = game.players.findIndex((p) => p.playerId === playerId);
+    const nextIndex = getNextActivePlayerIndex(game, currentIndex);
+    if (nextIndex === null) {
+      game.status = "finished";
+    } else {
+      game.currentTurn = game.players[nextIndex].playerId;
+    }
     if (!game.deck) {
       game.deck = [];
     }
@@ -428,8 +457,38 @@ const endTurn = async (req, res) => {
     if (game.deck.length === 0) {
       game.status = "finished";
       console.log(`Игра ${gameId} завершена!`);
+
       const finalScores = calculateScores(game);
       console.log("Финальный счет:", finalScores);
+
+      const participants = game.players.map((p) => ({ username: p.name }));
+
+      let maxScore = -Infinity;
+      for (const pid in finalScores) {
+        if (finalScores[pid] > maxScore) {
+          maxScore = finalScores[pid];
+        }
+      }
+
+      const winners = game.players
+        .filter((p) => (finalScores[p.playerId] || 0) === maxScore)
+        .map((p) => p.name);
+
+      const winner = winners.join(", ");
+      console.log("Список победителей (winners):", winners);
+      console.log("Итоговый победитель (winner):", winner);
+
+      try {
+        await GameHistory.createHistory({
+          game_id: gameId,
+          participants,
+          played_at: new Date().toISOString(),
+          winner,
+        });
+        console.log(`История игры для ${gameId} успешно сохранена`);
+      } catch (historyError) {
+        console.error("Ошибка сохранения истории игры:", historyError);
+      }
     }
 
     await game.save();
@@ -497,6 +556,20 @@ const placeMeeple = async (req, res) => {
       return res
         .status(400)
         .json({ errorMessage: "Указанная область не найдена" });
+    }
+
+    if (meepleType === "аббаты") {
+      if (area.type !== "monastery" && area.type !== "garden") {
+        return res.status(400).json({
+          errorMessage: "Аббата можно ставить только на монастырь или сад",
+        });
+      }
+    } else {
+      if (area.type === "garden") {
+        return res
+          .status(400)
+          .json({ errorMessage: "Подданных нельзя ставить на сад" });
+      }
     }
 
     if (meepleType === "аббаты") {
@@ -641,10 +714,13 @@ const skipTurn = async (req, res) => {
         game.board[key].active = false;
       }
     });
-    let currentIndex = game.players.findIndex((p) => p.playerId === playerId);
-    let nextIndex = (currentIndex + 1) % game.players.length;
-    game.currentTurn = game.players[nextIndex].playerId;
-
+    const currentIndex = game.players.findIndex((p) => p.playerId === playerId);
+    const nextIndex = getNextActivePlayerIndex(game, currentIndex);
+    if (nextIndex === null) {
+      game.status = "finished";
+    } else {
+      game.currentTurn = game.players[nextIndex].playerId;
+    }
     if (!game.deck) {
       game.deck = [];
     }
@@ -683,6 +759,84 @@ const skipTurn = async (req, res) => {
   }
 };
 
+const finishGame = async (req, res) => {
+  try {
+    const { gameId } = req.params;
+    const game = await Game.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ errorMessage: "Игра не найдена" });
+    }
+    game.players = game.players.filter((p) => !p.left);
+    game.status = "finished";
+    await game.save();
+
+    const finalScores = calculateScores(game);
+
+    const participants = game.players.map((p) => ({ username: p.name }));
+
+    let maxScore = -Infinity;
+    for (const pid in finalScores) {
+      if (finalScores[pid] > maxScore) {
+        maxScore = finalScores[pid];
+      }
+    }
+    const winners = game.players
+      .filter((p) => (finalScores[p.playerId] || 0) === maxScore)
+      .map((p) => p.name);
+    const winner = winners.join(", ");
+
+    await GameHistory.createHistory({
+      game_id: gameId,
+      participants,
+      played_at: new Date().toISOString(),
+      winner,
+    });
+
+    console.log(`Игра ${gameId} завершена досрочно, история сохранена.`);
+
+    return res.status(200).json({ ...game, scores: finalScores });
+  } catch (err) {
+    console.error("Ошибка в finishGame:", err);
+    return res.status(500).json({ errorMessage: "Internal server error" });
+  }
+};
+
+function getNextActivePlayerIndex(game, currentIndex) {
+  const len = game.players.length;
+  let nextIndex = (currentIndex + 1) % len;
+  const startIndex = nextIndex;
+  while (game.players[nextIndex].left) {
+    nextIndex = (nextIndex + 1) % len;
+    if (nextIndex === startIndex) {
+      return null;
+    }
+  }
+  return nextIndex;
+}
+
+const getActiveGames = async (req, res) => {
+  try {
+    const rows = await db("games").where({ status: "waiting" });
+
+    const list = rows.map((r) => {
+      const state = r.game_state;
+      let activePlayers = 0;
+      if (Array.isArray(state.players)) {
+        activePlayers = state.players.filter((p) => !p.left).length;
+      }
+      return {
+        gameId: r.game_id,
+        players: activePlayers,
+      };
+    });
+
+    return res.status(200).json(list);
+  } catch (err) {
+    console.error("Ошибка getActiveGames:", err);
+    return res.status(500).json({ errorMessage: "Internal server error" });
+  }
+};
+
 module.exports = {
   createGame,
   joinGame,
@@ -696,4 +850,6 @@ module.exports = {
   rotateImage,
   cancelAction,
   skipTurn,
+  finishGame,
+  getActiveGames,
 };

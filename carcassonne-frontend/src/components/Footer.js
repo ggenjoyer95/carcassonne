@@ -8,7 +8,7 @@ function Footer() {
         textAlign: "center",
       }}
     >
-      <p>© 2025 Carcassonne.</p>
+      <p>2025 Carcassonne</p>
     </footer>
   );
 }

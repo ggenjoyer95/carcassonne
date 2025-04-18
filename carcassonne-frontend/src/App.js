@@ -7,7 +7,12 @@ import CreateGame from "./components/CreateGame";
 import LobbyPage from "./components/LobbyPage";
 import GamePage from "./components/GamePage";
 import FinishGamePage from "./components/FinishGamePage";
+import Register from "./components/Register";
+import Login from "./components/Login";
+import Profile from "./components/Profile";
 import { loadTileDefinitions } from "./data/tileAreas";
+import { AuthProvider } from "./components/AuthContext";
+import FindGame from "./components/FindGame";
 
 function App() {
   const [definitionsLoaded, setDefinitionsLoaded] = useState(false);
@@ -67,49 +72,68 @@ function App() {
   }
 
   return (
-    <Router>
-      <Header />
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <div style={{ padding: "20px", textAlign: "center" }}>
-              <h1>Добро пожаловать в Carcassonne!</h1>
-              <p>Этот интерфейс создаётся с нуля.</p>
-              <Link to="/join">
-                <button
-                  style={{
-                    padding: "10px 20px",
-                    fontSize: "16px",
-                    cursor: "pointer",
-                    marginRight: "10px",
-                  }}
-                >
-                  Присоединиться по ID
-                </button>
-              </Link>
-              <Link to="/create">
-                <button
-                  style={{
-                    padding: "10px 20px",
-                    fontSize: "16px",
-                    cursor: "pointer",
-                  }}
-                >
-                  Создать игру
-                </button>
-              </Link>
-            </div>
-          }
-        />
-        <Route path="/join" element={<JoinGame />} />
-        <Route path="/create" element={<CreateGame />} />
-        <Route path="/lobby/:gameId" element={<LobbyPage />} />
-        <Route path="/game/:gameId" element={<GamePage />} />
-        <Route path="/finish" element={<FinishGamePage />} />
-      </Routes>
-      <Footer />
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Header />
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <div style={{ padding: "20px", textAlign: "center" }}>
+                <h1>Добро пожаловать в Carcassonne!</h1>
+                <p></p>
+                <Link to="/join">
+                  <button
+                    style={{
+                      padding: "10px 20px",
+                      fontSize: "16px",
+                      cursor: "pointer",
+                      marginRight: "10px",
+                    }}
+                  >
+                    Присоединиться по ID
+                  </button>
+                </Link>
+                <Link to="/create">
+                  <button
+                    style={{
+                      padding: "10px 20px",
+                      fontSize: "16px",
+                      cursor: "pointer",
+                      marginRight: "10px",
+                    }}
+                  >
+                    Создать игру
+                  </button>
+                </Link>
+                <Link to="/find">
+                  <button
+                    style={{
+                      padding: "10px 20px",
+                      fontSize: "16px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Найти игру
+                  </button>
+                </Link>
+              </div>
+            }
+          />
+          <Route path="/join" element={<JoinGame />} />
+          <Route path="/create" element={<CreateGame />} />
+          <Route path="/find" element={<FindGame />} />
+          <Route path="/lobby/:gameId" element={<LobbyPage />} />
+          <Route path="/game/:gameId" element={<GamePage />} />
+          <Route path="/finish" element={<FinishGamePage />} />
+          {}
+          <Route path="/auth/register" element={<Register />} />
+          <Route path="/auth/login" element={<Login />} />
+          <Route path="/profile" element={<Profile />} />
+        </Routes>
+        <Footer />
+      </Router>
+    </AuthProvider>
   );
 }
 

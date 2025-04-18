@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../components/AuthContext";
 
 function JoinGame() {
+  const { user } = useContext(AuthContext);
   const [gameId, setGameId] = useState("");
-  const [playerName, setPlayerName] = useState("");
+  const [playerName, setPlayerName] = useState(user?.username || "");
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
 
@@ -14,24 +16,17 @@ function JoinGame() {
         `${process.env.REACT_APP_API_URL}/game/${gameId}/join`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code: "1234", playerName }),
         }
       );
 
-      if (response.ok) {
-        const data = await response.json();
-
-        if (data.token) {
-          localStorage.setItem("jwt", data.token);
-        }
-
-        navigate(`/lobby/${gameId}`);
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(`Ошибка: ${data.errorMessage}`);
       } else {
-        const error = await response.json();
-        setMessage(`Ошибка: ${error.errorMessage}`);
+        if (data.token) localStorage.setItem("jwt", data.token);
+        navigate(`/lobby/${gameId}`);
       }
     } catch (err) {
       setMessage("Ошибка соединения с сервером.");
@@ -39,30 +34,41 @@ function JoinGame() {
   };
 
   return (
-    <div style={{ padding: "20px", textAlign: "center" }}>
+    <div
+      style={{ margin: "40px auto", maxWidth: "400px", textAlign: "center" }}
+    >
       <h2>Присоединение к игре</h2>
       <form onSubmit={handleJoin}>
-        <div style={{ marginBottom: "10px" }}>
-          <label>Game ID:</label>
+        <div style={{ marginBottom: "10px", textAlign: "left" }}>
+          <label style={{ display: "block", marginBottom: "5px" }}>
+            Game ID:
+          </label>
           <input
             type="text"
             value={gameId}
             onChange={(e) => setGameId(e.target.value)}
             required
-            style={{ marginLeft: "10px", padding: "5px" }}
+            style={{ padding: "5px", width: "100%" }}
           />
         </div>
-        <div style={{ marginBottom: "10px" }}>
-          <label>Ваше имя:</label>
-          <input
-            type="text"
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            required
-            maxLength="12"
-            style={{ marginLeft: "10px", padding: "5px" }}
-          />
-        </div>
+
+        {}
+        {!user && (
+          <div style={{ marginBottom: "10px", textAlign: "left" }}>
+            <label style={{ display: "block", marginBottom: "5px" }}>
+              Ваше имя:
+            </label>
+            <input
+              type="text"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              required
+              maxLength="12"
+              style={{ padding: "5px", width: "100%" }}
+            />
+          </div>
+        )}
+
         <button
           type="submit"
           style={{
@@ -78,6 +84,7 @@ function JoinGame() {
           Присоединиться
         </button>
       </form>
+
       {message && (
         <p
           style={{
