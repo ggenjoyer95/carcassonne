@@ -13,6 +13,7 @@ app.use(cors());
 app.use(bodyParser.json());
 const allowed = [
   "http://localhost:3000",
+  "http://carcboard.ru",
   "https://carcboard.ru",
   "https://carcassonne.onrender.com",
 ];
